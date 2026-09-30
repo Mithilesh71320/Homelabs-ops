@@ -30,9 +30,9 @@ oauthRouter.get('/.well-known/oauth-authorization-server', (req, res) => {
     token_endpoint: `${issuerUrl}/token`,
     grant_types_supported: ['client_credentials'],
     response_types_supported: ['token'],
-    token_endpoint_auth_methods_supported: ['client_secret_basic'],
+    token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
     code_challenge_methods_supported: ['S256'],
-    scopes_supported: ['mcp:full']
+    scopes_supported: ['mcp:tools', 'mcp:resources', 'mcp:prompts', 'mcp:full']
   });
 });
 
@@ -46,7 +46,7 @@ oauthRouter.get('/.well-known/oauth-protected-resource', (req, res) => {
   res.status(200).json({
     resource: config.MCP_SERVER_PUBLIC_URL,
     authorization_servers: [issuerUrl],
-    scopes_supported: ['mcp:full'],
+    scopes_supported: ['mcp:tools', 'mcp:resources', 'mcp:prompts', 'mcp:full'],
     bearer_methods_supported: ['header']
   });
 });

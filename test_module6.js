@@ -210,6 +210,37 @@ try {
   }
   console.log('✔ Authenticated /mcp request with Bearer JWT PASSED!');
 
+  // 6c. Expired Token Rejection Test
+  console.log('Testing expired token rejection...');
+  const jwt = (await import('jsonwebtoken')).default;
+  const expiredToken = jwt.sign(
+    { iss: serverPublicUrl, sub: clientId, aud: serverPublicUrl, scope: 'mcp:full' },
+    jwtSecret,
+    { expiresIn: '1s' }
+  );
+
+  console.log('Waiting 2 seconds for token to expire...');
+  await new Promise(r => setTimeout(r, 2000));
+
+  const expiredRes = await fetch(`http://127.0.0.1:${serverPort}/mcp`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${expiredToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'ping' })
+  });
+  const expiredWwwHeader = expiredRes.headers.get('www-authenticate');
+  console.log('Expired token response status:', expiredRes.status, '| WWW-Authenticate:', expiredWwwHeader);
+
+  if (expiredRes.status !== 401) {
+    throw new Error(`Expected HTTP 401 for expired token, got ${expiredRes.status}`);
+  }
+  if (expiredWwwHeader !== null) {
+    throw new Error(`WWW-Authenticate header MUST NOT be present on expired token 401 response (got "${expiredWwwHeader}")`);
+  }
+  console.log('✔ Expired token correctly rejected with HTTP 401 and no WWW-Authenticate header!');
+
   console.log('\n=== ALL MODULE 6 TESTS COMPLETED SUCCESSFULLY! ===');
 } catch (err) {
   console.error('\n❌ MODULE 6 VERIFICATION FAILED:', err);
