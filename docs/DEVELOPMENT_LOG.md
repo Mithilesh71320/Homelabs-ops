@@ -135,4 +135,38 @@
 - **Audit Logging Statuses**: SQLite `audit_log` records `status: "success"` for full AI analysis, and `status: "degraded"` for fallback/error paths (Row 1: success, Row 2: degraded, Row 3: degraded).
 - **Regression Pass**: Full regression suite (`test_module2.js`, `test_module3.js`, `test_module4.js`, `test_module5.js`) passed 100%.
 
+---
+
+## Module 6: Alexa+ OAuth 2.1 Machine-To-Machine Client Credentials Authentication
+**Date:** 2026-09-30
+
+### What Was Built
+- Extended environment variable schema in `src/config.js` (`MCP_SERVER_PUBLIC_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `ACCESS_TOKEN_TTL_SECONDS`, `JWT_SIGNING_SECRET`).
+- Implemented `src/auth/oauth.js` with Express router containing 3 endpoints:
+  1. `GET /.well-known/oauth-authorization-server`: Exposes RFC 8414 metadata advertising `issuer`, `token_endpoint`, `grant_types_supported: ["client_credentials"]`, `code_challenge_methods_supported: ["S256"]`, and `scopes_supported: ["mcp:full"]`.
+  2. `GET /.well-known/oauth-protected-resource`: Exposes RFC 9728 Protected Resource Metadata advertising `resource`, `authorization_servers`, `scopes_supported`, and `bearer_methods_supported: ["header"]`.
+  3. `POST /token`: Validates client Basic Auth (`OAUTH_CLIENT_ID`/`OAUTH_CLIENT_SECRET`), `grant_type=client_credentials`, and `resource` URI parameter. On success, issues a signed JWT Bearer access token valid for `ACCESS_TOKEN_TTL_SECONDS`. On error, returns standard OAuth error JSON (`invalid_client`, `unsupported_grant_type`, `invalid_target`).
+- Built `src/auth/verifyToken.js` Express middleware protecting `/mcp`:
+  - Validates `Authorization: Bearer <token>` JWT signature, expiration, and audience (`aud`).
+  - **Bare 401 requirement**: Unauthenticated or invalid token requests return HTTP 401 Unauthorized with a bare JSON body and explicitly **NO `WWW-Authenticate` header** (enforcing Alexa+'s strict auth specification).
+- Updated `src/index.js` to parse urlencoded/json bodies, mount `oauthRouter`, and apply `verifyToken` ONLY to `/mcp`.
+
+### Files Touched
+- `package.json` & `package-lock.json`
+- `.env.example` & `.env`
+- `src/config.js`
+- `src/auth/oauth.js`
+- `src/auth/verifyToken.js`
+- `src/index.js`
+- `test_module2.js`, `test_module3.js`, `test_module4.js`, `test_module5.js` (updated with OAuth token authentication)
+- `test_module6.js`
+
+### Verification Results
+- **Metadata Endpoints**: `GET /.well-known/oauth-authorization-server` and `GET /.well-known/oauth-protected-resource` return HTTP 200 with valid metadata matching RFC 8414, RFC 9728, and Alexa+ PKCE/S256 spec.
+- **Token Issuance**: `POST /token` returns Bearer JWT with `expires_in: 3600` for valid credentials and returns standard OAuth error JSON for invalid credentials/grant_type/resource.
+- **Bare 401 Verification**: Unauthenticated `/mcp` request returns HTTP 401 with **zero `WWW-Authenticate` header**.
+- **Authenticated MCP Operations**: `/mcp` requests with valid Bearer JWT execute MCP tools (`ping`, `get_container_status`, etc.) cleanly.
+- **Full Suite Pass**: `npm test` runs all 5 module tests (Modules 2, 3, 4, 5, 6) sequentially with 100% pass rate.
+
+
 

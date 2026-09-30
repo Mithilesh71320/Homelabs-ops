@@ -15,7 +15,7 @@ import { analyzeLogs, BedrockError } from '../services/ai.js';
  * Higher-order function wrapping tool logic with automatic SQLite audit logging and error handling.
  *
  * @param {string} toolName - Name of the MCP tool being wrapped
- * @param {(args?: any) => Promise<string>} handlerFn - Function executing tool logic and returning text
+ * @param {(args?: any) => Promise<any>} handlerFn - Function executing tool logic and returning text or result object
  * @returns {(args?: any) => Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export function withAudit(toolName, handlerFn) {
@@ -25,9 +25,9 @@ export function withAudit(toolName, handlerFn) {
 
     try {
       const rawResult = await handlerFn(args);
-      const isObj = typeof rawResult === 'object' && rawResult !== null && 'text' in rawResult;
-      const textResult = isObj ? rawResult.text : rawResult;
-      const status = isObj && rawResult.status ? rawResult.status : 'success';
+      const resObj = (typeof rawResult === 'object' && rawResult !== null && 'text' in rawResult) ? rawResult : null;
+      const textResult = resObj ? String(resObj.text) : String(rawResult || '');
+      const status = resObj && resObj.status ? String(resObj.status) : 'success';
       const summary = textResult.length > 120 ? textResult.slice(0, 117) + '...' : textResult;
 
       logEntry({
@@ -389,7 +389,7 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
  *
  * @param {Object} [args]
  * @param {string} [args.container_name]
- * @returns {Promise<string>}
+ * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue', async (args = {}) => {
   const containerName = args.container_name || '';

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js"
+    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1143.0",
@@ -17,10 +17,12 @@
     "better-sqlite3": "^13.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
     "pino": "^10.3.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.3",
     "typescript": "^7.0.2"
   }

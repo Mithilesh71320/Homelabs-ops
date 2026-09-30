@@ -58,9 +58,24 @@ console.log('Mock Portainer running on http://127.0.0.1:9878');
 
 // Helper for MCP Client Session
 async function createMcpSession(port) {
+  const tokenRes = await fetch(`http://127.0.0.1:${port}/token`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from('alexa_test_client:alexa_test_secret').toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
+  const tokenData = await tokenRes.json();
+  const token = tokenData.access_token || '';
+
   const initRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream'
+    },
     body: JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
@@ -73,6 +88,7 @@ async function createMcpSession(port) {
   await fetch(`http://127.0.0.1:${port}/mcp`, {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json, text/event-stream',
       'mcp-session-id': sessionId,
@@ -87,6 +103,7 @@ async function createMcpSession(port) {
       const callRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json, text/event-stream',
           'mcp-session-id': sessionId,
@@ -116,6 +133,11 @@ const testEnv = {
   SQLITE_DB_PATH: testDbPath,
   AWS_REGION: 'us-east-1',
   BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+  MCP_SERVER_PUBLIC_URL: 'http://localhost:3070/mcp',
+  OAUTH_CLIENT_ID: 'alexa_test_client',
+  OAUTH_CLIENT_SECRET: 'alexa_test_secret',
+  ACCESS_TOKEN_TTL_SECONDS: '3600',
+  JWT_SIGNING_SECRET: 'test_jwt_secret',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 

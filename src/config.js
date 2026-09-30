@@ -13,8 +13,14 @@ const configSchema = z.object({
   }),
   SQLITE_DB_PATH: z.string().default('./audit.db'),
   AWS_REGION: z.string().min(1, { message: 'AWS_REGION is required' }),
-  BEDROCK_MODEL_ID: z.string().min(1, { message: 'BEDROCK_MODEL_ID is required' })
+  BEDROCK_MODEL_ID: z.string().min(1, { message: 'BEDROCK_MODEL_ID is required' }),
+  MCP_SERVER_PUBLIC_URL: z.string().min(1, { message: 'MCP_SERVER_PUBLIC_URL is required' }),
+  OAUTH_CLIENT_ID: z.string().min(1, { message: 'OAUTH_CLIENT_ID is required' }),
+  OAUTH_CLIENT_SECRET: z.string().min(1, { message: 'OAUTH_CLIENT_SECRET is required' }),
+  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().default(3600),
+  JWT_SIGNING_SECRET: z.string().min(1, { message: 'JWT_SIGNING_SECRET is required' })
 });
+
 
 
 /**
