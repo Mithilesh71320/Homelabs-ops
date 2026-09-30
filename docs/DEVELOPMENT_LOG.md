@@ -162,11 +162,13 @@
 - `test_module6.js`
 
 ### Verification Results
-- **Metadata Endpoints**: `GET /.well-known/oauth-authorization-server` and `GET /.well-known/oauth-protected-resource` return HTTP 200 with valid metadata matching RFC 8414, RFC 9728, and Alexa+ PKCE/S256 spec.
+- **Metadata Endpoints**: `GET /.well-known/oauth-authorization-server` and `GET /.well-known/oauth-protected-resource` return HTTP 200 with valid metadata matching RFC 8414, RFC 9728, and Alexa+ spec with scopes `["mcp:tools", "mcp:resources", "mcp:prompts", "mcp:full"]`.
 - **Token Issuance**: `POST /token` returns Bearer JWT with `expires_in: 3600` for valid credentials and returns standard OAuth error JSON for invalid credentials/grant_type/resource.
 - **Bare 401 Verification**: Unauthenticated `/mcp` request returns HTTP 401 with **zero `WWW-Authenticate` header**.
+- **Expired Token Rejection**: Token issued with 1s TTL and tested after 2s returns HTTP 401 with **zero `WWW-Authenticate` header**.
 - **Authenticated MCP Operations**: `/mcp` requests with valid Bearer JWT execute MCP tools (`ping`, `get_container_status`, etc.) cleanly.
 - **Full Suite Pass**: `npm test` runs all 5 module tests (Modules 2, 3, 4, 5, 6) sequentially with 100% pass rate.
+
 
 
 
