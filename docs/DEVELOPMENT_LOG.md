@@ -129,8 +129,10 @@
 
 ### Verification Results
 - **Fast-fail configuration**: Startup fails gracefully if `AWS_REGION` or `BEDROCK_MODEL_ID` is missing.
-- **Happy Path AI Diagnosis**: `diagnose_container_issue` returned Bedrock explanation + recommended fix (`"crashed-app crashed because The application process ran out of allocated RAM buffer memory... I recommend Increase the container memory limit..."`).
+- **Happy Path AI Diagnosis & Formatting**: `diagnose_container_issue` returned clean Bedrock explanation + recommended fix with zero double periods (`"crashed-app crashed because The application process ran out of allocated RAM buffer memory... I recommend Increase the container memory limit..."`).
 - **Bedrock Failure Fallback**: Invalid model ID / API error returns raw log tail with user note without throwing or crashing.
 - **Bedrock Timeout Fallback**: 8-second timeout returns raw log tail with timeout note without crashing.
-- **Audit Logging**: All 3 calls (happy path, error fallback, timeout fallback) recorded audit log entries in SQLite `audit_log`.
+- **Audit Logging Statuses**: SQLite `audit_log` records `status: "success"` for full AI analysis, and `status: "degraded"` for fallback/error paths (Row 1: success, Row 2: degraded, Row 3: degraded).
+- **Regression Pass**: Full regression suite (`test_module2.js`, `test_module3.js`, `test_module4.js`, `test_module5.js`) passed 100%.
+
 

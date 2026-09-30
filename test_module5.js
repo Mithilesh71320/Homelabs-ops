@@ -6,7 +6,10 @@ console.log('=== RUNNING MODULE 5 COMPREHENSIVE VERIFICATION ===\n');
 
 // 1. Setup Environment BEFORE importing config-dependent modules
 const dbPath = './test_audit_m5.db';
-if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+if (fs.existsSync(dbPath)) {
+  try { fs.unlinkSync(dbPath); } catch {}
+}
+
 process.env.SQLITE_DB_PATH = dbPath;
 process.env.PORTAINER_URL = 'http://127.0.0.1:9879';
 process.env.PORTAINER_API_TOKEN = 'test_token';
@@ -16,7 +19,6 @@ process.env.BEDROCK_MODEL_ID = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
 
 const { handleDiagnoseContainerIssue } = await import('./src/mcp/handlers.js');
 const { setBedrockClient, BedrockError } = await import('./src/services/ai.js');
-
 
 // 2. Start Mock Portainer Server
 const mockPortainer = http.createServer((req, res) => {
@@ -50,7 +52,7 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
 
   try {
     // --- 2. Test Happy Path with Mocked Bedrock Client ---
-    console.log('\n--- 2. Testing Happy Path AI Diagnosis ---');
+    console.log('\n--- 2. Testing Happy Path AI Diagnosis & Formatting ---');
 
     const mockHappyClient = {
       send: async (command) => {
@@ -71,12 +73,17 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     setBedrockClient(mockHappyClient);
 
     const happyResult = await handleDiagnoseContainerIssue({ container_name: 'crashed-app' });
-    console.log('Happy Path Result:\n', happyResult.content[0].text);
+    const textOutput = happyResult.content[0].text;
+    console.log('Happy Path Result:\n', textOutput);
 
-    if (!happyResult.content[0].text.includes('crashed-app crashed because') || !happyResult.content[0].text.includes('I recommend')) {
+    if (textOutput.includes('..')) {
+      throw new Error('Double period formatting bug detected in text output');
+    }
+
+    if (!textOutput.includes('crashed-app crashed because') || !textOutput.includes('I recommend')) {
       throw new Error('Happy path response format did not match expected structure');
     }
-    console.log('✔ Happy Path AI Diagnosis PASSED!');
+    console.log('✔ Happy Path AI Diagnosis & Formatting PASSED (zero double periods)!');
 
     // --- 3. Test Bedrock Error / Invalid Model ID Fallback ---
     console.log('\n--- 3. Testing Bedrock Failure Fallback (Invalid Model ID / API Error) ---');
@@ -100,13 +107,17 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     console.log('✔ Bedrock Failure Fallback PASSED without crashing!');
 
     // --- 4. Test Bedrock Timeout Fallback ---
-    console.log('\n--- 4. Testing Bedrock Timeout Fallback ---');
+    console.log('\n--- 4. Testing Bedrock Timeout Fallback & AbortSignal ---');
 
     const mockTimeoutClient = {
       send: async (command, options) => {
-        const err = new Error('The operation was aborted');
-        err.name = 'AbortError';
-        throw err;
+        // Assert that abortSignal was passed cleanly by client
+        if (options?.abortSignal) {
+          const err = new Error('The operation was aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
+        throw new Error('AbortSignal was not provided to send command');
       }
     };
 
@@ -120,10 +131,10 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     }
     console.log('✔ Bedrock Timeout Fallback PASSED!');
 
-    // --- 5. Verify Full Audit Log Table in SQLite ---
-    console.log('\n--- 5. Verifying Audit Log Table Contents in SQLite ---');
+    // --- 5. Verify Full Audit Log Table Statuses in SQLite ---
+    console.log('\n--- 5. Verifying Audit Log Table Statuses in SQLite ---');
     const db = new Database(dbPath, { readonly: true });
-    const logs = db.prepare('SELECT * FROM audit_log').all();
+    const logs = db.prepare('SELECT * FROM audit_log ORDER BY id ASC').all();
     console.log(`Total audit rows logged: ${logs.length}`);
     console.log(JSON.stringify(logs, null, 2));
     db.close();
@@ -131,7 +142,20 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     if (logs.length !== 3) {
       throw new Error(`Expected 3 audit log rows, found ${logs.length}`);
     }
-    console.log('✔ Audit Log Table Verification PASSED (All 3 calls logged cleanly)!');
+
+    if (logs[0].status !== 'success') {
+      throw new Error(`Expected Row 1 status to be 'success', got '${logs[0].status}'`);
+    }
+
+    if (logs[1].status !== 'degraded') {
+      throw new Error(`Expected Row 2 status to be 'degraded', got '${logs[1].status}'`);
+    }
+
+    if (logs[2].status !== 'degraded') {
+      throw new Error(`Expected Row 3 status to be 'degraded', got '${logs[2].status}'`);
+    }
+
+    console.log('✔ Audit Log Status Verification PASSED (Row 1: success, Row 2: degraded, Row 3: degraded)!');
 
     console.log('\n=== ALL MODULE 5 TESTS COMPLETED SUCCESSFULLY! ===');
   } catch (err) {
@@ -144,5 +168,4 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
       try { fs.unlinkSync(dbPath); } catch {}
     }
   }
-
 });

@@ -102,9 +102,14 @@ SUGGESTED_FIX: <one plain English sentence recommending how to fix or prevent th
     if (!explanation || !suggestedFix) {
       // Fallback parser if regex doesn't match strictly
       const lines = outputMessage.split('\n').map((l) => l.trim()).filter(Boolean);
-      if (!explanation) explanation = lines[0] || 'The container encountered an unexpected error during execution.';
-      if (!suggestedFix) suggestedFix = lines[1] || 'Check the container configuration and check recent log events.';
+      if (!explanation) explanation = lines[0] || 'The container encountered an unexpected error during execution';
+      if (!suggestedFix) suggestedFix = lines[1] || 'Check the container configuration and check recent log events';
     }
+
+    // Strip any trailing period so host template slotting doesn't cause double periods ("..")
+    explanation = explanation.replace(/\.+$/, '').trim();
+    suggestedFix = suggestedFix.replace(/\.+$/, '').trim();
+
 
     logger.info({
       service: 'homelab-ops-mcp',

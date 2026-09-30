@@ -24,14 +24,17 @@ export function withAudit(toolName, handlerFn) {
     const target = args?.container_name || null;
 
     try {
-      const textResult = await handlerFn(args);
+      const rawResult = await handlerFn(args);
+      const isObj = typeof rawResult === 'object' && rawResult !== null && 'text' in rawResult;
+      const textResult = isObj ? rawResult.text : rawResult;
+      const status = isObj && rawResult.status ? rawResult.status : 'success';
       const summary = textResult.length > 120 ? textResult.slice(0, 117) + '...' : textResult;
 
       logEntry({
         timestamp,
         tool_name: toolName,
         target,
-        status: 'success',
+        status,
         result_summary: summary
       });
 
@@ -393,11 +396,19 @@ export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue'
   const logs = await getContainerLogs(containerName, 50);
 
   try {
-    const { explanation, suggestedFix } = await analyzeLogs(logs);
-    return `${containerName} crashed because ${explanation}. I recommend ${suggestedFix}.`;
+    let { explanation, suggestedFix } = await analyzeLogs(logs);
+    explanation = explanation.replace(/\.+$/, '').trim();
+    suggestedFix = suggestedFix.replace(/\.+$/, '').trim();
+    return {
+      text: `${containerName} crashed because ${explanation}. I recommend ${suggestedFix}.`,
+      status: 'success'
+    };
   } catch (err) {
     if (err instanceof BedrockError || err?.name === 'BedrockError') {
-      return `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}. Here is the raw log tail for ${containerName}:\n\n${logs}`;
+      return {
+        text: `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}. Here is the raw log tail for ${containerName}:\n\n${logs}`,
+        status: 'degraded'
+      };
     }
     throw err;
   }
