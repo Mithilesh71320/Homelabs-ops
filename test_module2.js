@@ -13,6 +13,8 @@ function testMissingVar(varName) {
     PORTAINER_API_TOKEN: 'token123',
     PORTAINER_ENDPOINT_ID: '1',
     SQLITE_DB_PATH: './audit.db',
+    AWS_REGION: 'us-east-1',
+    BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     DOTENV_CONFIG_PATH: 'non_existent_file'
   };
   delete env[varName];
@@ -27,11 +29,14 @@ function testMissingVar(varName) {
 const ffUrl = testMissingVar('PORTAINER_URL');
 const ffToken = testMissingVar('PORTAINER_API_TOKEN');
 const ffEndpoint = testMissingVar('PORTAINER_ENDPOINT_ID');
+const ffRegion = testMissingVar('AWS_REGION');
+const ffModel = testMissingVar('BEDROCK_MODEL_ID');
 
-if (ffUrl && ffToken && ffEndpoint) {
+if (ffUrl && ffToken && ffEndpoint && ffRegion && ffModel) {
   console.log('✔ All Fast-Fail tests PASSED!\n');
 } else {
   console.error('❌ Fast-Fail tests FAILED!\n');
+
 }
 
 // 2. Mock Portainer Server Setup
@@ -129,6 +134,8 @@ const testEnv = {
   PORTAINER_API_TOKEN: 'valid_token',
   PORTAINER_ENDPOINT_ID: '1',
   SQLITE_DB_PATH: './audit.db',
+  AWS_REGION: 'us-east-1',
+  BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 
@@ -174,6 +181,8 @@ const badTokenEnv = {
   PORTAINER_API_TOKEN: 'bad_token',
   PORTAINER_ENDPOINT_ID: '1',
   SQLITE_DB_PATH: './audit.db',
+  AWS_REGION: 'us-east-1',
+  BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 const badTokenProc = spawn('node', ['src/index.js'], { env: badTokenEnv, stdio: 'pipe' });
@@ -197,6 +206,8 @@ const unreachableEnv = {
   PORTAINER_API_TOKEN: 'valid_token',
   PORTAINER_ENDPOINT_ID: '1',
   SQLITE_DB_PATH: './audit.db',
+  AWS_REGION: 'us-east-1',
+  BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 const unreachProc = spawn('node', ['src/index.js'], { env: unreachableEnv, stdio: 'pipe' });

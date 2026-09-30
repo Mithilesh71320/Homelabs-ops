@@ -7,9 +7,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test_module2.js && node test_module3.js && node test_module4.js"
+    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1143.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "axios": "^1.20.0",
     "axios-retry": "^4.5.0",

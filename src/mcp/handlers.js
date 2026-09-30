@@ -8,6 +8,8 @@ import {
 } from '../services/portainer.js';
 import { logEntry } from '../utils/audit.js';
 import { createPendingAction, getPendingAction, consumePendingAction } from '../utils/safety.js';
+import { analyzeLogs, BedrockError } from '../services/ai.js';
+
 
 /**
  * Higher-order function wrapping tool logic with automatic SQLite audit logging and error handling.
@@ -376,3 +378,28 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
     };
   }
 }
+
+/**
+ * Tool handler for diagnose_container_issue, wrapped with SQLite audit logging.
+ * Reuses getContainerLogs to fetch tail logs, then calls analyzeLogs for AI diagnosis.
+ * On BedrockError, falls back to raw logs with a user note instead of failing the request.
+ *
+ * @param {Object} [args]
+ * @param {string} [args.container_name]
+ * @returns {Promise<string>}
+ */
+export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue', async (args = {}) => {
+  const containerName = args.container_name || '';
+  const logs = await getContainerLogs(containerName, 50);
+
+  try {
+    const { explanation, suggestedFix } = await analyzeLogs(logs);
+    return `${containerName} crashed because ${explanation}. I recommend ${suggestedFix}.`;
+  } catch (err) {
+    if (err instanceof BedrockError || err?.name === 'BedrockError') {
+      return `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}. Here is the raw log tail for ${containerName}:\n\n${logs}`;
+    }
+    throw err;
+  }
+});
+

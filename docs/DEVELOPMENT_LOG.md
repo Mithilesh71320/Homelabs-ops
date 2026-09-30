@@ -102,3 +102,35 @@
 - **Double-execution prevention**: Re-confirming same `action_id` returns `"I don't have that pending request anymore — please ask again."` and logs `status: "not_found"`.
 - **True TTL Expiry**: Attempting to confirm after 120s TTL returns `"I don't have that pending request anymore — please ask again."` and logs `status: "not_found"`.
 - **Full audit trail**: All 8 execution rows verified sequentially in SQLite `audit_log`.
+
+---
+
+## Module 5: AWS Bedrock AI Root-Cause Analysis Tool
+**Date:** 2026-09-30
+
+### What Was Built
+- Added AWS Bedrock Runtime integration using `@aws-sdk/client-bedrock-runtime` with the Converse API (`ConverseCommand`).
+- Environment variable validation extended in `src/config.js` requiring `AWS_REGION` and `BEDROCK_MODEL_ID`.
+- Built `src/services/ai.js` exporting `analyzeLogs(logsText)` returning `{ explanation, suggestedFix }` with an 8-second timeout (`AbortController`).
+- Custom `BedrockError` handling: catches timeouts/API errors and provides user-friendly fallback message.
+- Structured Pino logging for model ID, call duration (ms), and success/failure state.
+- New dedicated MCP tool `diagnose_container_issue` registered in `src/mcp/tools.js`.
+- Handler `handleDiagnoseContainerIssue` in `src/mcp/handlers.js`: reuses `getContainerLogs`, sends logs to `analyzeLogs`, formats spoken response (`"<container> crashed because <explanation>. I recommend <suggestedFix>."`), and gracefully falls back to raw log tail on AI failure without crashing. Wrapped with `withAudit`.
+
+### Files Touched
+- `package.json` & `package-lock.json`
+- `.env.example`
+- `src/config.js`
+- `src/services/ai.js`
+- `src/mcp/tools.js`
+- `src/mcp/handlers.js`
+- `test_module2.js`, `test_module3.js`, `test_module4.js` (updated with AWS env vars)
+- `test_module5.js`
+
+### Verification Results
+- **Fast-fail configuration**: Startup fails gracefully if `AWS_REGION` or `BEDROCK_MODEL_ID` is missing.
+- **Happy Path AI Diagnosis**: `diagnose_container_issue` returned Bedrock explanation + recommended fix (`"crashed-app crashed because The application process ran out of allocated RAM buffer memory... I recommend Increase the container memory limit..."`).
+- **Bedrock Failure Fallback**: Invalid model ID / API error returns raw log tail with user note without throwing or crashing.
+- **Bedrock Timeout Fallback**: 8-second timeout returns raw log tail with timeout note without crashing.
+- **Audit Logging**: All 3 calls (happy path, error fallback, timeout fallback) recorded audit log entries in SQLite `audit_log`.
+

@@ -6,8 +6,10 @@ import {
   handleGetContainerStats,
   handleRequestRestartContainer,
   handleRequestStopContainer,
-  handleConfirmAction
+  handleConfirmAction,
+  handleDiagnoseContainerIssue
 } from './handlers.js';
+
 
 /**
  * Registers all MCP tools on the server instance.
@@ -98,4 +100,17 @@ export function registerTools(server) {
     },
     async (args) => handleConfirmAction(args)
   );
+
+  // AI Tool: diagnose_container_issue
+  server.registerTool(
+    'diagnose_container_issue',
+    {
+      description: 'Analyze container logs using AI to diagnose crashes, errors, and suggest fixes',
+      inputSchema: z.object({
+        container_name: z.string({ required_error: 'container_name is required' }).describe('Name of container to diagnose')
+      })
+    },
+    async (args) => handleDiagnoseContainerIssue(args)
+  );
 }
+

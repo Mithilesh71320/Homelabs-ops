@@ -11,8 +11,11 @@ const configSchema = z.object({
     invalid_type_error: 'PORTAINER_ENDPOINT_ID must be a valid number',
     required_error: 'PORTAINER_ENDPOINT_ID is required'
   }),
-  SQLITE_DB_PATH: z.string().default('./audit.db')
+  SQLITE_DB_PATH: z.string().default('./audit.db'),
+  AWS_REGION: z.string().min(1, { message: 'AWS_REGION is required' }),
+  BEDROCK_MODEL_ID: z.string().min(1, { message: 'BEDROCK_MODEL_ID is required' })
 });
+
 
 /**
  * Parse and validate process.env against configSchema.

@@ -107,6 +107,8 @@ const testEnv = {
   PORTAINER_API_TOKEN: 'valid_token',
   PORTAINER_ENDPOINT_ID: '1',
   SQLITE_DB_PATH: testDbPath,
+  AWS_REGION: 'us-east-1',
+  BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 
@@ -153,6 +155,8 @@ const badDbEnv = {
   PORTAINER_API_TOKEN: 'valid_token',
   PORTAINER_ENDPOINT_ID: '1',
   SQLITE_DB_PATH: 'Z:\\unwritable_directory_path\\audit.db', // Invalid path
+  AWS_REGION: 'us-east-1',
+  BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 
