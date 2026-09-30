@@ -1,0 +1,26 @@
+{
+  "name": "homelab-ops-mcp",
+  "version": "1.0.0",
+  "description": "Self-hosted MCP server for HomeLab Ops",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node test_module2.js && node test_module3.js && node test_module4.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "axios": "^1.20.0",
+    "axios-retry": "^4.5.0",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pino": "^10.3.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2"
+  }
+}
