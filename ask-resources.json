@@ -1,0 +1,10 @@
+{
+  "ask-resourcesVersion": "2.0",
+  "profiles": {
+    "default": {
+      "skillMetadata": {
+        "src": "./alexa-skill-package"
+      }
+    }
+  }
+}

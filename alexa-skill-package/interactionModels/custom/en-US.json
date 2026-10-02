@@ -1,0 +1,91 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "homelab ops",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "GetContainerStatusIntent",
+          "slots": [],
+          "samples": [
+            "check container status",
+            "get container status",
+            "status",
+            "how are my containers",
+            "check containers"
+          ]
+        },
+        {
+          "name": "DiagnoseContainerIntent",
+          "slots": [
+            {
+              "name": "container",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "diagnose {container}",
+            "why is {container} crashing",
+            "what happened to {container}",
+            "analyze logs for {container}"
+          ]
+        },
+        {
+          "name": "RestartContainerIntent",
+          "slots": [
+            {
+              "name": "container",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "restart {container}",
+            "reboot {container}"
+          ]
+        },
+        {
+          "name": "StopContainerIntent",
+          "slots": [
+            {
+              "name": "container",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "stop {container}",
+            "turn off {container}"
+          ]
+        },
+        {
+          "name": "ConfirmActionIntent",
+          "slots": [],
+          "samples": [
+            "yes",
+            "confirm",
+            "proceed",
+            "do it"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "summary": "HomeLab Ops MCP Server Integration",
+          "examplePhrases": [
+            "Alexa ask homelab ops to check container status",
+            "Alexa ask homelab ops why plex server is crashing",
+            "Alexa ask homelab ops to restart plex server"
+          ],
+          "name": "HomeLab Ops",
+          "description": "Self-hosted Docker and Portainer management MCP server for Alexa"
+        }
+      },
+      "isAvailableWorldwide": true,
+      "testingInstructions": "Self-hosted MCP server integration test",
+      "category": "SMART_HOME"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://quilt-adds-theta-booth.trycloudflare.com/mcp",
+          "sslCertificateType": "Wildcard"
+        },
+        "interfaces": []
+      }
+    },
+    "manifestVersion": "1.0",
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": false,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { logger } from './logger.js';
 import { createMcpServer } from './mcp/server.js';
 import { oauthRouter } from './auth/oauth.js';
 import { verifyToken } from './auth/verifyToken.js';
+import { alexaSkillHandler } from './alexa/adapter.js';
 
 const app = express();
 const PORT = config.PORT || 3000;
@@ -22,11 +23,21 @@ app.use(oauthRouter);
 // Initialize MCP Server and Transport
 const { transport, connectPromise } = createMcpServer();
 
-// 3. Protected MCP Transport at /mcp (verifyToken middleware enforced)
-app.all('/mcp', verifyToken, async (req, res) => {
-  await connectPromise;
-  await transport.handleRequest(req, res, req.body);
-});
+// 3. Dual Protocol Handler at /mcp and /:
+// If request body contains an Alexa request payload (req.body?.request?.type), route to alexaSkillHandler.
+// Otherwise, enforce OAuth verifyToken middleware and route to MCP transport.
+async function mcpOrAlexaRouter(req, res, next) {
+  if (req.body && typeof req.body === 'object' && req.body.request && req.body.request.type) {
+    return alexaSkillHandler(req, res);
+  }
+  return verifyToken(req, res, async () => {
+    await connectPromise;
+    await transport.handleRequest(req, res, req.body);
+  });
+}
+
+app.all('/mcp', mcpOrAlexaRouter);
+app.all('/', mcpOrAlexaRouter);
 
 app.listen(PORT, () => {
   logger.info(`HomeLab Ops MCP server listening on port ${PORT}`);

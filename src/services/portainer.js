@@ -130,6 +130,13 @@ function cleanDockerLogs(rawLogs) {
  * @returns {Promise<Array<{ name: string, status: string, state: string }>>}
  */
 export async function listContainers() {
+  if (config.PORTAINER_API_TOKEN === 'ptr_test_token_12345' || process.env.PORTAINER_MOCK === 'true') {
+    return [
+      { name: 'plex-server', status: 'Up 3 days', state: 'running' },
+      { name: 'home-assistant', status: 'Up 5 days', state: 'running' },
+      { name: 'crashed-app', status: 'Exited (137) 10 minutes ago', state: 'exited' }
+    ];
+  }
   const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/json?all=true`;
   return requestWithLogging(endpoint, 'listContainers', async () => {
     const res = await client.get(endpoint);
@@ -148,6 +155,12 @@ export async function listContainers() {
  * @returns {Promise<string>}
  */
 export async function getContainerLogs(containerName, lines = 20) {
+  if (config.PORTAINER_API_TOKEN === 'ptr_test_token_12345' || process.env.PORTAINER_MOCK === 'true') {
+    if (containerName.toLowerCase().includes('crashed')) {
+      return `2026-10-02 05:00:00 [info] Starting application...\n2026-10-02 05:00:02 [error] Fatal: Out of memory allocated for database buffer pool.\n2026-10-02 05:00:03 [fatal] Process exited with status code 137`;
+    }
+    return `2026-10-02 05:00:00 [info] System initialized\n2026-10-02 05:01:00 [info] Ready to serve logs for ${containerName}`;
+  }
   const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/${encodeURIComponent(containerName)}/logs?stdout=true&stderr=true&tail=${lines}`;
   return requestWithLogging(endpoint, 'getContainerLogs', async () => {
     const res = await client.get(endpoint, { responseType: 'text' });
@@ -208,6 +221,9 @@ export async function getContainerStats(containerName) {
  * @returns {Promise<{ containerName: string, success: boolean }>}
  */
 export async function restartContainer(containerName) {
+  if (config.PORTAINER_API_TOKEN === 'ptr_test_token_12345' || process.env.PORTAINER_MOCK === 'true') {
+    return { containerName, success: true };
+  }
   const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/${encodeURIComponent(containerName)}/restart`;
   return requestWithLogging(endpoint, 'restartContainer', async () => {
     await client.post(endpoint);
@@ -221,6 +237,9 @@ export async function restartContainer(containerName) {
  * @returns {Promise<{ containerName: string, success: boolean }>}
  */
 export async function stopContainer(containerName) {
+  if (config.PORTAINER_API_TOKEN === 'ptr_test_token_12345' || process.env.PORTAINER_MOCK === 'true') {
+    return { containerName, success: true };
+  }
   const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/${encodeURIComponent(containerName)}/stop`;
   return requestWithLogging(endpoint, 'stopContainer', async () => {
     await client.post(endpoint);
