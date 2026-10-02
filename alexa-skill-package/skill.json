@@ -60,7 +60,7 @@
     "apis": {
       "custom": {
         "endpoint": {
-          "uri": "https://quilt-adds-theta-booth.trycloudflare.com/mcp",
+          "uri": "https://dust-mouth-committed-ferrari.trycloudflare.com/mcp",
           "sslCertificateType": "Wildcard"
         },
         "interfaces": []

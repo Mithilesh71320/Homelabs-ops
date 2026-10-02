@@ -10,19 +10,35 @@ import {
 import { logger } from '../logger.js';
 
 /**
+ * Escapes special characters for valid XML/SSML rendering.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeSSML(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    .replace(/\r?\n+/g, ' <break time="300ms"/> ');
+}
+
+/**
  * Formats a plain text response into a standard Alexa Skill Response object.
  * @param {string} text - Spoken response text
  * @param {boolean} [shouldEndSession=true] - Whether Alexa should close the mic session
  * @returns {Object} Alexa Response JSON
  */
 function buildAlexaResponse(text, shouldEndSession = true) {
-  const cleanText = text.replace(/<[^>]*>/g, '').trim();
+  const ssmlContent = escapeSSML(text);
   return {
     version: '1.0',
     response: {
       outputSpeech: {
         type: 'SSML',
-        ssml: `<speak>${cleanText}</speak>`
+        ssml: `<speak>${ssmlContent}</speak>`
       },
       shouldEndSession
     }
@@ -30,7 +46,7 @@ function buildAlexaResponse(text, shouldEndSession = true) {
 }
 
 /**
- * Handles incoming Alexa Skill Request JSON payloads (LaunchRequest, IntentRequest).
+ * Handles incoming Alexa Skill Request JSON payloads (LaunchRequest, IntentRequest, SessionEndedRequest).
  * Routes intents to the corresponding HomeLab Ops MCP handler functions.
  *
  * @param {import('express').Request} req
@@ -48,13 +64,19 @@ export async function alexaSkillHandler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
   try {
-    // 1. LaunchRequest
+    // 1. SessionEndedRequest (Protocol requirement: MUST NOT return outputSpeech or shouldEndSession: false)
+    if (reqType === 'SessionEndedRequest') {
+      logger.info({ reason: alexaReq.reason, error: alexaReq.error }, 'Alexa SessionEndedRequest completed');
+      return res.status(200).json({ version: '1.0' });
+    }
+
+    // 2. LaunchRequest
     if (reqType === 'LaunchRequest') {
-      const welcome = "Welcome to HomeLab Ops. You can check container status, diagnose crashed containers, or request a container restart.";
+      const welcome = "Welcome to Home Lab Ops. You can check container status, diagnose crashed containers, or request a container restart.";
       return res.status(200).json(buildAlexaResponse(welcome, false));
     }
 
-    // 2. IntentRequest
+    // 3. IntentRequest
     if (reqType === 'IntentRequest') {
       const intentName = alexaReq.intent?.name || '';
       const slots = alexaReq.intent?.slots || {};
