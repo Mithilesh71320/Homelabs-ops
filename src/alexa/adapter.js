@@ -26,14 +26,15 @@ function escapeSSML(text) {
 }
 
 /**
- * Formats a plain text response into a standard Alexa Skill Response object.
+ * Formats a plain text response into a standard Alexa Skill Response object with optional reprompt for multi-turn sessions.
  * @param {string} text - Spoken response text
- * @param {boolean} [shouldEndSession=true] - Whether Alexa should close the mic session
+ * @param {boolean} [shouldEndSession=false] - Whether Alexa should close the mic session
+ * @param {string} [repromptText] - Reprompt speech if user takes a pause
  * @returns {Object} Alexa Response JSON
  */
-function buildAlexaResponse(text, shouldEndSession = true) {
+function buildAlexaResponse(text, shouldEndSession = false, repromptText = "Is there anything else you'd like to check on your homelab?") {
   const ssmlContent = escapeSSML(text);
-  return {
+  const responseObj = {
     version: '1.0',
     response: {
       outputSpeech: {
@@ -43,6 +44,17 @@ function buildAlexaResponse(text, shouldEndSession = true) {
       shouldEndSession
     }
   };
+
+  if (!shouldEndSession && repromptText) {
+    responseObj.response.reprompt = {
+      outputSpeech: {
+        type: 'SSML',
+        ssml: `<speak>${escapeSSML(repromptText)}</speak>`
+      }
+    };
+  }
+
+  return responseObj;
 }
 
 /**
@@ -85,13 +97,15 @@ export async function alexaSkillHandler(req, res) {
       if (intentName === 'GetContainerStatusIntent') {
         const result = await handleGetContainerStatus({ container_name: containerName });
         const speech = result.content[0].text;
-        return res.status(200).json(buildAlexaResponse(speech, true));
+        // Keep session open so user can ask follow-up questions
+        return res.status(200).json(buildAlexaResponse(speech, false));
       }
 
       if (intentName === 'DiagnoseContainerIntent') {
         const result = await handleDiagnoseContainerIssue({ container_name: containerName || 'crashed-app' });
         const speech = result.content[0].text;
-        return res.status(200).json(buildAlexaResponse(speech, true));
+        // Keep session open so user can ask follow-up questions
+        return res.status(200).json(buildAlexaResponse(speech, false));
       }
 
       if (intentName === 'RestartContainerIntent') {

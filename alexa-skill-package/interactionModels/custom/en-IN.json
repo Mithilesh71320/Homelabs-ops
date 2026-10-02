@@ -31,7 +31,8 @@
             "get container status",
             "status",
             "how are my containers",
-            "check containers"
+            "check containers",
+            "container status"
           ]
         },
         {
@@ -44,9 +45,16 @@
           ],
           "samples": [
             "diagnose {container}",
+            "diagnose container {container}",
             "why is {container} crashing",
+            "why is {container} down",
             "what happened to {container}",
-            "analyze logs for {container}"
+            "analyze logs for {container}",
+            "analyse logs for {container}",
+            "analyze {container}",
+            "analyse {container}",
+            "check logs for {container}",
+            "logs for {container}"
           ]
         },
         {
@@ -59,7 +67,8 @@
           ],
           "samples": [
             "restart {container}",
-            "reboot {container}"
+            "reboot {container}",
+            "restart container {container}"
           ]
         },
         {
@@ -72,7 +81,8 @@
           ],
           "samples": [
             "stop {container}",
-            "turn off {container}"
+            "turn off {container}",
+            "stop container {container}"
           ]
         },
         {
