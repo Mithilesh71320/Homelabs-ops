@@ -119,6 +119,7 @@ async function createMcpSession(port) {
 // 2. Test Success Path & Audit Log Records
 console.log('\n--- 2. Testing Normal Execution & Audit Table Insertion ---');
 const testEnv = {
+  ...process.env,
   NODE_ENV: 'development',
   PORT: '3060',
   PORTAINER_URL: 'http://127.0.0.1:9877',

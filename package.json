@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js && node test_module7.js"
+    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js && node test_module7.js && node test_module8.js",
+    "e2e:mcp": "node e2e_mcp_proof.js"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1143.0",

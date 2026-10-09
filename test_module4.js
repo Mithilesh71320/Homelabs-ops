@@ -126,6 +126,7 @@ async function createMcpSession(port) {
 // 2. Start MCP Server Process
 console.log('\n--- 2. Starting MCP Server for Module 4 Verification ---');
 const testEnv = {
+  ...process.env,
   NODE_ENV: 'development',
   PORT: '3070',
   PORTAINER_URL: 'http://127.0.0.1:9878',

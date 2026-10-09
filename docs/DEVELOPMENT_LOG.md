@@ -217,3 +217,46 @@
 - **Rate Limiting**: `/token` endpoint rate limit tripped on the 11th request within a minute, returning HTTP 429.
 - **Source-Tagged Audit Trail**: SQLite `audit_log` rows verified with correct `source` values (`source="alexa-skill"` for Alexa skill requests and `source="mcp"` for direct MCP protocol requests).
 - **Full Suite Regression Pass**: `npm test` executed all 6 module test suites (Modules 2, 3, 4, 5, 6, 7) sequentially with 100% pass rate.
+
+---
+
+## Module 8: End-to-End MCP Proof & Alexa In-Process Client Routing
+**Date:** 2026-10-09
+
+### What Was Built
+- **In-Process MCP Client Adapter (`src/mcp/server.js` & `src/alexa/adapter.js`)**:
+  - Exported `createInProcessMcpClient()` using `InMemoryTransport.createLinkedPair()` connecting a dedicated `McpServer` instance with an `@modelcontextprotocol/sdk` `Client`.
+  - Routed all Alexa skill intent handlers (`GetHomelabSummaryIntent`, `GetSystemStatusIntent`, `GetContainerStatusIntent`, `DiagnoseContainerIntent`, `RestartContainerIntent`, `StopContainerIntent`, `ConfirmActionIntent`) through `mcpClient.callTool({ name, arguments })`.
+- **Audit Context Propagation (`src/utils/auditContext.js` & `src/mcp/handlers.js`)**:
+  - Implemented `runWithSource(source, fn)` and `getAuditSource()` using Node.js `AsyncLocalStorage`.
+  - Updated tool handlers (`withAudit`, `handleRequestRestartContainer`, `handleRequestStopContainer`, `handleConfirmAction`) to resolve `source` via `getAuditSource() || 'mcp'`, transparently tagging all Alexa-triggered audit records as `source: 'alexa-skill'`.
+- **Tool Refinement & Annotations (`src/mcp/tools.js` & `src/mcp/handlers.js`)**:
+  - Added `get_homelab_summary` tool returning a spoken-optimized fleet health summary (<300 characters).
+  - Enhanced tool descriptions for LLM planners with explicit example phrasings and operational constraints.
+  - Added MCP tool annotations across all 9 registered tools: `readOnlyHint`, `destructiveHint`, and `openWorldHint`.
+- **Automated E2E Proof Script (`e2e_mcp_proof.js` & `package.json`)**:
+  - Created `e2e_mcp_proof.js` using `@modelcontextprotocol/sdk` `Client` and `StreamableHTTPClientTransport`.
+  - Validated 11 sequential E2E steps: RFC 8414/9728 discovery, OAuth 2.1 token issuance, transport connection, tool list annotations, `ping`, `get_homelab_summary`, `get_container_status`, `request_restart_container`, `confirm_action` (declined), negative auth 401 checks, and destructive safety guard verification.
+  - Added `"e2e:mcp": "node e2e_mcp_proof.js"` and updated `"test"` script in `package.json`.
+
+### Files Touched
+- `package.json`
+- `src/index.js`
+- `src/utils/auditContext.js`
+- `src/utils/audit.js`
+- `src/mcp/tools.js`
+- `src/mcp/handlers.js`
+- `src/mcp/server.js`
+- `src/alexa/adapter.js`
+- `e2e_mcp_proof.js`
+- `test_module8.js`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification Results
+- **In-Process MCP Client Verification**: Alexa adapter intent calls execute via `InMemoryTransport` in-process client without HTTP overhead.
+- **Audit Tagging**: All Alexa invocations correctly tagged with `source: 'alexa-skill'` in SQLite `audit_log`.
+- **Annotations**: `tools/list` returns 9 tools with accurate `readOnlyHint`, `destructiveHint`, and `openWorldHint` metadata.
+- **Spoken Summary**: `get_homelab_summary` returns concise fleet health output under 300 characters.
+- **E2E Proof Transcript**: `node e2e_mcp_proof.js` executed 11 proof steps with 100% pass rate.
+- **Full Suite Pass**: `npm test` runs all 7 module test suites (Modules 2–8) sequentially with 100% pass rate.
+

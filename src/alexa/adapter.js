@@ -1,15 +1,22 @@
 import { SkillRequestSignatureVerifier, TimestampVerifier } from 'ask-sdk-express-adapter';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import {
-  handleGetContainerStatus,
-  handleGetContainerLogs,
-  handleGetContainerStats,
-  handleRequestRestartContainer,
-  handleRequestStopContainer,
-  handleConfirmAction,
-  handleDiagnoseContainerIssue
-} from '../mcp/handlers.js';
+import { createInProcessMcpClient } from '../mcp/server.js';
+import { runWithSource } from '../utils/auditContext.js';
+
+/** @type {import('@modelcontextprotocol/sdk/client/index.js').Client | null} */
+let mcpClientInstance = null;
+
+/**
+ * Lazy initializer for in-process MCP Client connected via InMemoryTransport pair.
+ * @returns {Promise<import('@modelcontextprotocol/sdk/client/index.js').Client>}
+ */
+async function getInProcessMcpClient() {
+  if (!mcpClientInstance) {
+    mcpClientInstance = await createInProcessMcpClient();
+  }
+  return mcpClientInstance;
+}
 
 /**
  * Escapes special characters for valid XML/SSML rendering.
@@ -88,7 +95,7 @@ async function verifyAlexaRequest(req) {
 
 /**
  * Handles incoming Alexa Skill Request JSON payloads (LaunchRequest, IntentRequest, SessionEndedRequest).
- * Routes intents to the corresponding HomeLab Ops MCP handler functions.
+ * Routes intents through the in-process MCP Client tool layer.
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -135,29 +142,66 @@ export async function alexaSkillHandler(req, res) {
       const slots = alexaReq.intent?.slots || {};
       const containerName = slots.container?.value || slots.container_name?.value || '';
 
+      const mcpClient = await getInProcessMcpClient();
+
+      if (intentName === 'GetHomelabSummaryIntent' || intentName === 'GetSystemStatusIntent') {
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'get_homelab_summary',
+            arguments: {}
+          })
+        );
+        const speech = result.content[0].text;
+        return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
+      }
+
       if (intentName === 'GetContainerStatusIntent') {
-        const result = await handleGetContainerStatus({ container_name: containerName }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'get_container_status',
+            arguments: containerName ? { container_name: containerName } : {}
+          })
+        );
         const speech = result.content[0].text;
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
       if (intentName === 'DiagnoseContainerIntent') {
-        const result = await handleDiagnoseContainerIssue({ container_name: containerName || 'crashed-app' }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'diagnose_container_issue',
+            arguments: { container_name: containerName || 'crashed-app' }
+          })
+        );
         const speech = result.content[0].text;
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
       if (intentName === 'RestartContainerIntent') {
-        const result = await handleRequestRestartContainer({ container_name: containerName || 'plex-server' }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'request_restart_container',
+            arguments: { container_name: containerName || 'plex-server' }
+          })
+        );
         const speech = result.content[0].text;
-        const newAttributes = { ...sessionAttributes, pending_action_id: result.action_id };
+        const match = speech.match(/action_id:\s*([a-f0-9\-]+)/i);
+        const action_id = match ? match[1] : undefined;
+        const newAttributes = { ...sessionAttributes, pending_action_id: action_id };
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, newAttributes));
       }
 
       if (intentName === 'StopContainerIntent') {
-        const result = await handleRequestStopContainer({ container_name: containerName || 'home-assistant' }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'request_stop_container',
+            arguments: { container_name: containerName || 'home-assistant' }
+          })
+        );
         const speech = result.content[0].text;
-        const newAttributes = { ...sessionAttributes, pending_action_id: result.action_id };
+        const match = speech.match(/action_id:\s*([a-f0-9\-]+)/i);
+        const action_id = match ? match[1] : undefined;
+        const newAttributes = { ...sessionAttributes, pending_action_id: action_id };
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, newAttributes));
       }
 
@@ -168,7 +212,12 @@ export async function alexaSkillHandler(req, res) {
           return res.status(200).json(buildAlexaResponse(noPendingMsg, true, undefined, {}));
         }
 
-        const result = await handleConfirmAction({ action_id: pendingActionId, confirmed: true }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'confirm_action',
+            arguments: { action_id: pendingActionId, confirmed: true }
+          })
+        );
         const speech = result.content[0].text;
         const updatedAttributes = { ...sessionAttributes };
         delete updatedAttributes.pending_action_id;
@@ -182,7 +231,12 @@ export async function alexaSkillHandler(req, res) {
           return res.status(200).json(buildAlexaResponse(noPendingMsg, true, undefined, {}));
         }
 
-        const result = await handleConfirmAction({ action_id: pendingActionId, confirmed: false }, { source: 'alexa-skill' });
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'confirm_action',
+            arguments: { action_id: pendingActionId, confirmed: false }
+          })
+        );
         const speech = result.content[0].text;
         const updatedAttributes = { ...sessionAttributes };
         delete updatedAttributes.pending_action_id;
@@ -208,4 +262,5 @@ export async function alexaSkillHandler(req, res) {
     return res.status(200).json(buildAlexaResponse(errText, true));
   }
 }
+
 

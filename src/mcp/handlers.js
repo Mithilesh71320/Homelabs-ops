@@ -7,6 +7,7 @@ import {
   PortainerError
 } from '../services/portainer.js';
 import { logEntry } from '../utils/audit.js';
+import { getAuditSource } from '../utils/auditContext.js';
 import { createPendingAction, getPendingAction, consumePendingAction } from '../utils/safety.js';
 import { analyzeLogs, BedrockError } from '../services/ai.js';
 
@@ -22,7 +23,7 @@ export function withAudit(toolName, handlerFn) {
   return async (args = {}, context = {}) => {
     const timestamp = new Date().toISOString();
     const target = args?.container_name || null;
-    const source = context?.source || args?.source || 'mcp';
+    const source = context?.source || args?.source || getAuditSource() || 'mcp';
 
     try {
       const rawResult = await handlerFn(args, context);
@@ -93,6 +94,53 @@ export async function handlePing() {
 }
 
 /**
+ * Tool handler for get_homelab_summary, wrapped with SQLite audit logging.
+ * Returns a high-level spoken health summary (<300 chars) of running, stopped, and unhealthy containers.
+ * @param {Object} [args]
+ * @param {Object} [context]
+ * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
+ */
+export const handleGetHomelabSummary = withAudit('get_homelab_summary', async () => {
+  const containers = await listContainers();
+  if (!containers || containers.length === 0) {
+    return "Your homelab has 0 containers running.";
+  }
+
+  let runningCount = 0;
+  let stoppedCount = 0;
+  const problemNames = [];
+
+  for (const c of containers) {
+    const statusLower = (c.status || '').toLowerCase();
+    const stateLower = (c.state || '').toLowerCase();
+
+    if (stateLower === 'running' || statusLower.startsWith('up')) {
+      runningCount++;
+      if (statusLower.includes('unhealthy')) {
+        problemNames.push(c.name);
+      }
+    } else {
+      stoppedCount++;
+      problemNames.push(c.name);
+    }
+  }
+
+  let summary = `Your homelab has ${containers.length} containers: ${runningCount} running, ${stoppedCount} stopped.`;
+  if (problemNames.length > 0) {
+    summary += ` Problem containers: ${problemNames.join(', ')}.`;
+  } else {
+    summary += ` All containers are healthy.`;
+  }
+
+  if (summary.length > 295) {
+    summary = summary.slice(0, 292) + '...';
+  }
+
+  return summary;
+});
+
+
+/**
  * Tool handler for get_container_status, wrapped with SQLite audit logging.
  * @param {Object} [args]
  * @param {string} [args.container_name]
@@ -154,7 +202,7 @@ export const handleGetContainerStats = withAudit('get_container_stats', async (a
  */
 export async function handleRequestRestartContainer({ container_name = '' } = {}, context = {}) {
   const timestamp = new Date().toISOString();
-  const source = context?.source || 'mcp';
+  const source = context?.source || getAuditSource() || 'mcp';
   try {
     const containers = await listContainers();
     const match = containers.find(c => c.name.toLowerCase() === container_name.toLowerCase() || c.name.toLowerCase().includes(container_name.toLowerCase()));
@@ -216,7 +264,7 @@ export async function handleRequestRestartContainer({ container_name = '' } = {}
  */
 export async function handleRequestStopContainer({ container_name = '' } = {}, context = {}) {
   const timestamp = new Date().toISOString();
-  const source = context?.source || 'mcp';
+  const source = context?.source || getAuditSource() || 'mcp';
   try {
     const containers = await listContainers();
     const match = containers.find(c => c.name.toLowerCase() === container_name.toLowerCase() || c.name.toLowerCase().includes(container_name.toLowerCase()));
@@ -280,7 +328,7 @@ export async function handleRequestStopContainer({ container_name = '' } = {}, c
 export async function handleConfirmAction({ action_id = '', confirmed = false } = {}, context = {}) {
   const timestamp = new Date().toISOString();
   const pending = getPendingAction(action_id);
-  const source = context?.source || 'mcp';
+  const source = context?.source || getAuditSource() || 'mcp';
 
   if (!pending) {
     logEntry({

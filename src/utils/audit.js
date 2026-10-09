@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+import { getAuditSource } from './auditContext.js';
 
 /**
  * @typedef {Object} AuditEntry
@@ -131,11 +132,12 @@ export function logEntry(entry) {
       api_call: entry.api_call || null,
       result_summary: entry.result_summary || null,
       error_message: entry.error_message || null,
-      source: entry.source || 'mcp'
+      source: entry.source || getAuditSource() || 'mcp'
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logger.warn({ entry, error: errorMsg }, `Failed to write audit log entry: ${errorMsg}`);
   }
 }
+
 

@@ -32,6 +32,7 @@ const tokenLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'too_many_requests', error_description: 'Rate limit exceeded' },
   keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip
 });
@@ -41,6 +42,7 @@ const apiLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'too_many_requests', error_description: 'Rate limit exceeded' },
   keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip
 });

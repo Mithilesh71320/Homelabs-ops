@@ -154,6 +154,7 @@ async function createMcpSession(port) {
 // 3. Test MCP Server End-to-End
 console.log('\n--- 3. Testing MCP Server End-to-End ---');
 const testEnv = {
+  ...process.env,
   NODE_ENV: 'development',
   PORT: '3050',
   PORTAINER_URL: 'http://127.0.0.1:9876',
@@ -176,8 +177,11 @@ const serverProc = spawn('node', ['src/index.js'], { env: testEnv, stdio: 'pipe'
 let pinoLogs = '';
 serverProc.stdout.on('data', d => pinoLogs += d.toString());
 serverProc.stderr.on('data', d => pinoLogs += d.toString());
+serverProc.on('error', err => console.error('Spawn error:', err));
+serverProc.on('exit', code => console.log('Server process exited with code:', code));
 
-await new Promise(r => setTimeout(r, 1500));
+await new Promise(r => setTimeout(r, 3500));
+console.log('Server process output logs:\n', pinoLogs);
 
 // Health check
 const health = await (await fetch('http://127.0.0.1:3050/health')).json();
