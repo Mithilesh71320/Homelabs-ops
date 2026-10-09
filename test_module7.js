@@ -167,6 +167,20 @@ try {
   if (wrongAppRes.status !== 400) throw new Error(`Expected HTTP 400 for wrong applicationId, got ${wrongAppRes.status}`);
   console.log('✔ Wrong applicationId request rejected with 400!');
 
+  // 3d. Isolated TimestampVerifier Unit Test (Isolates timestamp check from signature check)
+  console.log('Testing isolated TimestampVerifier unit test (>150s tolerance)...');
+  const { TimestampVerifier } = await import('ask-sdk-express-adapter');
+  const tsVerifier = new TimestampVerifier();
+  let tsFailed = false;
+  try {
+    const staleEnvelope = JSON.stringify(makeAlexaEnvelope('GetContainerStatusIntent', validSkillId, staleIso));
+    await tsVerifier.verify(staleEnvelope);
+  } catch (err) {
+    tsFailed = err.message.includes('Timestamp verification failed');
+  }
+  if (!tsFailed) throw new Error('TimestampVerifier failed to reject stale timestamp (>150s)');
+  console.log('✔ Isolated TimestampVerifier test PASSED!');
+
   // 4. Session-Bound Confirmation Tests (run with ALEXA_VERIFY_REQUESTS=false)
   console.log('\n--- 4. Testing Session-Bound Confirmation Safety Lock ---');
 

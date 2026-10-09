@@ -75,7 +75,8 @@ async function mcpOrAlexaRouter(req, res, next) {
 app.all('/mcp', apiLimiter, mcpOrAlexaRouter);
 app.all('/', apiLimiter, mcpOrAlexaRouter);
 
-app.listen(PORT, () => {
-  logger.info(`HomeLab Ops MCP server listening on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  logger.info(`HomeLab Ops MCP server listening on 127.0.0.1:${PORT}`);
 });
+
 
