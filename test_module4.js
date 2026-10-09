@@ -126,6 +126,7 @@ async function createMcpSession(port) {
 // 2. Start MCP Server Process
 console.log('\n--- 2. Starting MCP Server for Module 4 Verification ---');
 const testEnv = {
+  NODE_ENV: 'development',
   PORT: '3070',
   PORTAINER_URL: 'http://127.0.0.1:9878',
   PORTAINER_API_TOKEN: 'valid_token',
@@ -138,6 +139,8 @@ const testEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 

@@ -14,6 +14,7 @@ import { logger } from '../logger.js';
  * @property {string} [result_summary] - Brief summary of successful result
  * @property {string} [error_message] - Error message on failure
  * @property {string} [timestamp] - ISO 8601 timestamp string
+ * @property {'mcp' | 'alexa-skill'} [source] - Source caller type ('mcp' or 'alexa-skill')
  */
 
 /** @type {any} */
@@ -47,9 +48,18 @@ function getDbInstance() {
         status TEXT NOT NULL,
         api_call TEXT,
         result_summary TEXT,
-        error_message TEXT
+        error_message TEXT,
+        source TEXT
       );
     `);
+
+    // Idempotent startup migration for existing tables missing the 'source' column
+    const tableInfo = dbInstance.prepare("PRAGMA table_info(audit_log)").all();
+    const hasSourceColumn = tableInfo.some((col) => col.name === 'source');
+    if (!hasSourceColumn) {
+      dbInstance.exec("ALTER TABLE audit_log ADD COLUMN source TEXT;");
+    }
+
     return dbInstance;
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -97,7 +107,8 @@ export function logEntry(entry) {
         status,
         api_call,
         result_summary,
-        error_message
+        error_message,
+        source
       ) VALUES (
         @timestamp,
         @action_id,
@@ -106,7 +117,8 @@ export function logEntry(entry) {
         @status,
         @api_call,
         @result_summary,
-        @error_message
+        @error_message,
+        @source
       )
     `);
 
@@ -118,10 +130,12 @@ export function logEntry(entry) {
       status: entry.status,
       api_call: entry.api_call || null,
       result_summary: entry.result_summary || null,
-      error_message: entry.error_message || null
+      error_message: entry.error_message || null,
+      source: entry.source || 'mcp'
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logger.warn({ entry, error: errorMsg }, `Failed to write audit log entry: ${errorMsg}`);
   }
 }
+

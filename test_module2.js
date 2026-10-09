@@ -8,6 +8,7 @@ console.log('--- 1. Testing Config Fast-Fail (missing required env variables) --
 
 function testMissingVar(varName) {
   const env = {
+    NODE_ENV: 'development',
     PORT: '3999',
     PORTAINER_URL: 'http://127.0.0.1:9000',
     PORTAINER_API_TOKEN: 'token123',
@@ -20,6 +21,8 @@ function testMissingVar(varName) {
     OAUTH_CLIENT_SECRET: 'alexa_test_secret',
     ACCESS_TOKEN_TTL_SECONDS: '3600',
     JWT_SIGNING_SECRET: 'test_jwt_secret',
+    ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+    ALEXA_VERIFY_REQUESTS: 'false',
     DOTENV_CONFIG_PATH: 'non_existent_file'
   };
   delete env[varName];
@@ -151,6 +154,7 @@ async function createMcpSession(port) {
 // 3. Test MCP Server End-to-End
 console.log('\n--- 3. Testing MCP Server End-to-End ---');
 const testEnv = {
+  NODE_ENV: 'development',
   PORT: '3050',
   PORTAINER_URL: 'http://127.0.0.1:9876',
   PORTAINER_API_TOKEN: 'valid_token',
@@ -163,6 +167,8 @@ const testEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 
@@ -203,6 +209,7 @@ console.log('\n--- 4. Testing Failure Paths ---');
 // 4a. Bad Token Test (401)
 console.log('Testing Bad Token (401)...');
 const badTokenEnv = {
+  NODE_ENV: 'development',
   PORT: '3051',
   PORTAINER_URL: 'http://127.0.0.1:9876',
   PORTAINER_API_TOKEN: 'bad_token',
@@ -215,6 +222,8 @@ const badTokenEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 const badTokenProc = spawn('node', ['src/index.js'], { env: badTokenEnv, stdio: 'pipe' });
@@ -233,6 +242,7 @@ badTokenProc.kill();
 // 4b. Unreachable Server Test
 console.log('\nTesting Unreachable Portainer Server (Connection Refused)...');
 const unreachableEnv = {
+  NODE_ENV: 'development',
   PORT: '3052',
   PORTAINER_URL: 'http://127.0.0.1:59999',
   PORTAINER_API_TOKEN: 'valid_token',
@@ -245,6 +255,8 @@ const unreachableEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 const unreachProc = spawn('node', ['src/index.js'], { env: unreachableEnv, stdio: 'pipe' });

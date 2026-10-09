@@ -15,6 +15,7 @@ const { spawnSync } = await import('child_process');
 
 function testMissingOAuthVar(varName) {
   const env = {
+    NODE_ENV: 'development',
     PORT: '3998',
     PORTAINER_URL: 'http://127.0.0.1:9000',
     PORTAINER_API_TOKEN: 'token123',
@@ -27,6 +28,8 @@ function testMissingOAuthVar(varName) {
     OAUTH_CLIENT_SECRET: 'alexa_test_secret',
     ACCESS_TOKEN_TTL_SECONDS: '3600',
     JWT_SIGNING_SECRET: 'test_jwt_secret_key_123',
+    ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+    ALEXA_VERIFY_REQUESTS: 'false',
     DOTENV_CONFIG_PATH: 'non_existent_file'
   };
   delete env[varName];
@@ -58,6 +61,7 @@ const clientSecret = 'alexa_test_secret';
 const jwtSecret = 'test_jwt_secret_key_123';
 
 const serverEnv = {
+  NODE_ENV: 'development',
   PORT: String(serverPort),
   PORTAINER_URL: 'http://127.0.0.1:9880',
   PORTAINER_API_TOKEN: 'test_token',
@@ -70,6 +74,8 @@ const serverEnv = {
   OAUTH_CLIENT_SECRET: clientSecret,
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: jwtSecret,
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 

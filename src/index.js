@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { createMcpServer } from './mcp/server.js';
@@ -9,8 +11,42 @@ import { alexaSkillHandler } from './alexa/adapter.js';
 const app = express();
 const PORT = config.PORT || 3000;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Enable trust proxy for Cloudflare Tunnel / proxy IP resolution
+app.set('trust proxy', true);
+
+// Helmet security headers
+app.use(helmet());
+
+// Parse JSON request body with 100kb limit and raw body capture for Alexa verification
+app.use(express.json({
+  limit: '100kb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf ? buf.toString('utf8') : '';
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+// Rate Limiters (using CF-Connecting-IP if present, falling back to client IP)
+const tokenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Rate limit exceeded' },
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', error_description: 'Rate limit exceeded' },
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip
+});
+
+// Apply Rate Limiters to specific endpoints
+app.use('/token', tokenLimiter);
 
 // 1. Unauthenticated Health Check Endpoint
 app.get('/health', (req, res) => {
@@ -23,7 +59,7 @@ app.use(oauthRouter);
 // Initialize MCP Server and Transport
 const { transport, connectPromise } = createMcpServer();
 
-// 3. Dual Protocol Handler at /mcp and /:
+// 3. Dual Protocol Handler at /mcp and / (rate limited to 60 req/min):
 // If request body contains an Alexa request payload (req.body?.request?.type), route to alexaSkillHandler.
 // Otherwise, enforce OAuth verifyToken middleware and route to MCP transport.
 async function mcpOrAlexaRouter(req, res, next) {
@@ -36,9 +72,10 @@ async function mcpOrAlexaRouter(req, res, next) {
   });
 }
 
-app.all('/mcp', mcpOrAlexaRouter);
-app.all('/', mcpOrAlexaRouter);
+app.all('/mcp', apiLimiter, mcpOrAlexaRouter);
+app.all('/', apiLimiter, mcpOrAlexaRouter);
 
 app.listen(PORT, () => {
   logger.info(`HomeLab Ops MCP server listening on port ${PORT}`);
 });
+

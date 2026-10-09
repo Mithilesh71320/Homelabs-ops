@@ -1,9 +1,32 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
 export const oauthRouter = Router();
+
+/**
+ * Compares two strings in constant time (length-safe).
+ * Uses SHA-256 digests to avoid throwing RangeError when lengths differ while preserving timing safety.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+
+  const hashA = crypto.createHash('sha256').update(bufA).digest();
+  const hashB = crypto.createHash('sha256').update(bufB).digest();
+
+  const hashesMatch = crypto.timingSafeEqual(hashA, hashB);
+  return hashesMatch && bufA.length === bufB.length;
+}
 
 /**
  * Get canonical issuer URL derived from MCP_SERVER_PUBLIC_URL.
@@ -76,8 +99,11 @@ oauthRouter.post('/token', (req, res) => {
     clientSecret = req.body?.client_secret || req.query?.client_secret || '';
   }
 
-  // 1. Validate Client Credentials
-  if (!clientId || !clientSecret || clientId !== config.OAUTH_CLIENT_ID || clientSecret !== config.OAUTH_CLIENT_SECRET) {
+  // 1. Validate Client Credentials using constant-time comparison
+  const isClientValid = safeCompare(clientId, config.OAUTH_CLIENT_ID);
+  const isSecretValid = safeCompare(clientSecret, config.OAUTH_CLIENT_SECRET);
+
+  if (!clientId || !clientSecret || !isClientValid || !isSecretValid) {
     logger.warn({ clientId }, 'OAuth token issuance failed: invalid client credentials');
     return res.status(401).json({
       error: 'invalid_client',
@@ -133,3 +159,4 @@ oauthRouter.post('/token', (req, res) => {
     scope: 'mcp:full'
   });
 });
+

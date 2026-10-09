@@ -169,6 +169,51 @@
 - **Authenticated MCP Operations**: `/mcp` requests with valid Bearer JWT execute MCP tools (`ping`, `get_container_status`, etc.) cleanly.
 - **Full Suite Pass**: `npm test` runs all 5 module tests (Modules 2, 3, 4, 5, 6) sequentially with 100% pass rate.
 
+---
 
+## Module 7: Verification, Hardening & Audit Metadata
+**Date:** 2026-10-09
 
+### What Was Built
+- **Alexa Request Verification (`src/alexa/adapter.js`)**:
+  - Integrated `SkillRequestSignatureVerifier` and `TimestampVerifier` from `ask-sdk-express-adapter` to verify SSL certificates, RSA SHA-256 signatures, and 150-second timestamp freshness over raw body bytes.
+  - Added strict `applicationId` validation checking that incoming request `applicationId` matches `ALEXA_SKILL_ID`.
+  - Added environment configuration: `ALEXA_SKILL_ID` (required string) and `ALEXA_VERIFY_REQUESTS` (boolean, default `true`).
+  - Strict environment rule: `ALEXA_VERIFY_REQUESTS` may only be set to `false` when `NODE_ENV=development`; in any other environment, the server refuses startup. Logged loud warning when disabled in development.
+- **Endpoint Hardening (`src/index.js` & `src/auth/oauth.js`)**:
+  - Added `helmet()` middleware for HTTP security headers.
+  - Set `app.set('trust proxy', true)` and configured 100kb JSON request body parsing with raw body buffer capture (`req.rawBody`).
+  - Added `express-rate-limit` middleware: `/token` endpoint limited to 10 req/min per IP (returns HTTP 429 when exceeded); `/mcp` and Alexa routes limited to 60 req/min per IP. IP resolution uses `CF-Connecting-IP` proxy header when available.
+  - Implemented `safeCompare(a, b)` constant-time string comparison using SHA-256 digests and `crypto.timingSafeEqual` in `src/auth/oauth.js` to eliminate timing attack vulnerabilities on `client_id` and `client_secret`.
+  - Confirmed zero log lines print sensitive Authorization headers, client secrets, or issued tokens anywhere in the project.
+- **Source-Tagged Audit + Session-Bound Confirmation (`src/utils/audit.js`, `src/mcp/handlers.js`, `src/alexa/adapter.js`)**:
+  - Added idempotent startup migration in `src/utils/audit.js` using `PRAGMA table_info(audit_log)` to dynamically add the `source` TEXT column (`'mcp'` | `'alexa-skill'`) if missing.
+  - Updated all MCP handlers and audit logging functions to tag every audit log entry with its source caller type (`source: 'mcp'` vs `source: 'alexa-skill'`).
+  - Session-Bound Confirmation: Alexa adapter stores `pending_action_id` in response `sessionAttributes`. Multi-turn confirmation (`ConfirmActionIntent` / `AMAZON.YesIntent`) checks session attributes for `pending_action_id`. A "yes" without a pending action in `sessionAttributes` returns speech saying there is nothing to confirm and executes zero Portainer calls.
+  - Confirmed container modifications (`restartContainer`/`stopContainer`) are reachable ONLY through the `createPendingAction` -> `confirm_action` flow.
 
+### Files Touched
+- `.env.example` & `.env`
+- `package.json` & `package-lock.json`
+- `src/config.js`
+- `src/utils/audit.js`
+- `src/utils/safety.js`
+- `src/mcp/handlers.js`
+- `src/auth/oauth.js`
+- `src/alexa/adapter.js`
+- `src/index.js`
+- `test_module2.js`, `test_module3.js`, `test_module4.js`, `test_module5.js`, `test_module6.js` (updated with Module 7 test environment configuration)
+- `test_module7.js`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification Results
+- **Alexa Verification**:
+  - Forged Alexa request missing signature rejected with HTTP 400 and zero Portainer calls.
+  - Replayed request with stale timestamp (>150s) rejected with HTTP 400.
+  - Valid-shaped request with wrong `applicationId` rejected with HTTP 400.
+- **Session-Bound Confirmation**:
+  - `AMAZON.YesIntent` sent without `pending_action_id` in session attributes executed zero Portainer calls and returned speech `"There is no pending request to confirm."`.
+  - Multi-turn restart flow (`RestartContainerIntent` -> `AMAZON.YesIntent` with bound session attribute) executed container restart cleanly and returned success speech.
+- **Rate Limiting**: `/token` endpoint rate limit tripped on the 11th request within a minute, returning HTTP 429.
+- **Source-Tagged Audit Trail**: SQLite `audit_log` rows verified with correct `source` values (`source="alexa-skill"` for Alexa skill requests and `source="mcp"` for direct MCP protocol requests).
+- **Full Suite Regression Pass**: `npm test` executed all 6 module test suites (Modules 2, 3, 4, 5, 6, 7) sequentially with 100% pass rate.

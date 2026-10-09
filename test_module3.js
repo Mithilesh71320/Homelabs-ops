@@ -119,6 +119,7 @@ async function createMcpSession(port) {
 // 2. Test Success Path & Audit Log Records
 console.log('\n--- 2. Testing Normal Execution & Audit Table Insertion ---');
 const testEnv = {
+  NODE_ENV: 'development',
   PORT: '3060',
   PORTAINER_URL: 'http://127.0.0.1:9877',
   PORTAINER_API_TOKEN: 'valid_token',
@@ -131,6 +132,8 @@ const testEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 
@@ -172,6 +175,7 @@ db.close();
 // 3. Test Failure Resilience (Invalid DB Path)
 console.log('\n--- 3. Testing Audit Failure Resilience (Invalid DB Path / EACCES) ---');
 const badDbEnv = {
+  NODE_ENV: 'development',
   PORT: '3061',
   PORTAINER_URL: 'http://127.0.0.1:9877',
   PORTAINER_API_TOKEN: 'valid_token',
@@ -184,6 +188,8 @@ const badDbEnv = {
   OAUTH_CLIENT_SECRET: 'alexa_test_secret',
   ACCESS_TOKEN_TTL_SECONDS: '3600',
   JWT_SIGNING_SECRET: 'test_jwt_secret',
+  ALEXA_SKILL_ID: 'amzn1.ask.skill.test-id',
+  ALEXA_VERIFY_REQUESTS: 'false',
   DOTENV_CONFIG_PATH: 'non_existent_file'
 };
 

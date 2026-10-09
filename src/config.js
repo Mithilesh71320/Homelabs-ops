@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { logger } from './logger.js';
 
 dotenv.config(process.env.DOTENV_CONFIG_PATH ? { path: process.env.DOTENV_CONFIG_PATH } : undefined);
 
@@ -18,10 +19,13 @@ const configSchema = z.object({
   OAUTH_CLIENT_ID: z.string().min(1, { message: 'OAUTH_CLIENT_ID is required' }),
   OAUTH_CLIENT_SECRET: z.string().min(1, { message: 'OAUTH_CLIENT_SECRET is required' }),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().default(3600),
-  JWT_SIGNING_SECRET: z.string().min(1, { message: 'JWT_SIGNING_SECRET is required' })
+  JWT_SIGNING_SECRET: z.string().min(1, { message: 'JWT_SIGNING_SECRET is required' }),
+  ALEXA_SKILL_ID: z.string().min(1, { message: 'ALEXA_SKILL_ID is required' }),
+  ALEXA_VERIFY_REQUESTS: z.preprocess(
+    (val) => (val === undefined || val === '' ? 'true' : String(val).toLowerCase()),
+    z.enum(['true', 'false'])
+  ).transform((val) => val === 'true')
 });
-
-
 
 /**
  * Parse and validate process.env against configSchema.
@@ -35,6 +39,15 @@ function loadConfig() {
       .join(', ');
     throw new Error(`Configuration Validation Error — Missing or invalid environment variables: [${formattedErrors}]`);
   }
+
+  if (result.data.ALEXA_VERIFY_REQUESTS === false) {
+    const nodeEnv = process.env.NODE_ENV || 'production';
+    if (nodeEnv !== 'development') {
+      throw new Error('ALEXA_VERIFY_REQUESTS can only be set to false when NODE_ENV=development');
+    }
+    logger.warn('⚠️ WARNING: ALEXA_VERIFY_REQUESTS IS SET TO FALSE! Request verification disabled for development.');
+  }
+
   return result.data;
 }
 
@@ -42,3 +55,4 @@ function loadConfig() {
  * Validated application configuration object.
  */
 export const config = loadConfig();
+

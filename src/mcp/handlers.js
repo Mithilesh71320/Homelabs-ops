@@ -15,16 +15,17 @@ import { analyzeLogs, BedrockError } from '../services/ai.js';
  * Higher-order function wrapping tool logic with automatic SQLite audit logging and error handling.
  *
  * @param {string} toolName - Name of the MCP tool being wrapped
- * @param {(args?: any) => Promise<any>} handlerFn - Function executing tool logic and returning text or result object
- * @returns {(args?: any) => Promise<{ content: Array<{ type: 'text', text: string }> }>}
+ * @param {(args?: any, context?: any) => Promise<any>} handlerFn - Function executing tool logic and returning text or result object
+ * @returns {(args?: any, context?: any) => Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export function withAudit(toolName, handlerFn) {
-  return async (args = {}) => {
+  return async (args = {}, context = {}) => {
     const timestamp = new Date().toISOString();
     const target = args?.container_name || null;
+    const source = context?.source || args?.source || 'mcp';
 
     try {
-      const rawResult = await handlerFn(args);
+      const rawResult = await handlerFn(args, context);
       const resObj = (typeof rawResult === 'object' && rawResult !== null && 'text' in rawResult) ? rawResult : null;
       const textResult = resObj ? String(resObj.text) : String(rawResult || '');
       const status = resObj && resObj.status ? String(resObj.status) : 'success';
@@ -35,7 +36,8 @@ export function withAudit(toolName, handlerFn) {
         tool_name: toolName,
         target,
         status,
-        result_summary: summary
+        result_summary: summary,
+        source
       });
 
       return {
@@ -59,7 +61,8 @@ export function withAudit(toolName, handlerFn) {
         target,
         status: 'failure',
         error_message: rawErrorMessage,
-        result_summary: userMessage
+        result_summary: userMessage,
+        source
       });
 
       return {
@@ -93,6 +96,7 @@ export async function handlePing() {
  * Tool handler for get_container_status, wrapped with SQLite audit logging.
  * @param {Object} [args]
  * @param {string} [args.container_name]
+ * @param {Object} [context]
  * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export const handleGetContainerStatus = withAudit('get_container_status', async (args = {}) => {
@@ -118,6 +122,7 @@ export const handleGetContainerStatus = withAudit('get_container_status', async 
  * @param {Object} [args]
  * @param {string} [args.container_name]
  * @param {number} [args.lines=20]
+ * @param {Object} [context]
  * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export const handleGetContainerLogs = withAudit('get_container_logs', async (args = {}) => {
@@ -131,6 +136,7 @@ export const handleGetContainerLogs = withAudit('get_container_logs', async (arg
  * Tool handler for get_container_stats, wrapped with SQLite audit logging.
  * @param {Object} [args]
  * @param {string} [args.container_name]
+ * @param {Object} [context]
  * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
 export const handleGetContainerStats = withAudit('get_container_stats', async (args = {}) => {
@@ -143,10 +149,12 @@ export const handleGetContainerStats = withAudit('get_container_stats', async (a
  * Handles request_restart_container by validating container existence and generating a pending action.
  * @param {Object} [args]
  * @param {string} [args.container_name]
- * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
+ * @param {Object} [context]
+ * @returns {Promise<{ action_id?: string, content: Array<{ type: 'text', text: string }> }>}
  */
-export async function handleRequestRestartContainer({ container_name = '' } = {}) {
+export async function handleRequestRestartContainer({ container_name = '' } = {}, context = {}) {
   const timestamp = new Date().toISOString();
+  const source = context?.source || 'mcp';
   try {
     const containers = await listContainers();
     const match = containers.find(c => c.name.toLowerCase() === container_name.toLowerCase() || c.name.toLowerCase().includes(container_name.toLowerCase()));
@@ -171,10 +179,12 @@ export async function handleRequestRestartContainer({ container_name = '' } = {}
       tool_name: 'request_restart_container',
       target,
       status: 'pending',
-      result_summary: `Pending restart confirmation generated for ${target}`
+      result_summary: `Pending restart confirmation generated for ${target}`,
+      source
     });
 
     return {
+      action_id,
       content: [
         {
           type: 'text',
@@ -201,10 +211,12 @@ export async function handleRequestRestartContainer({ container_name = '' } = {}
  * Handles request_stop_container by validating container existence and generating a pending action.
  * @param {Object} [args]
  * @param {string} [args.container_name]
- * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
+ * @param {Object} [context]
+ * @returns {Promise<{ action_id?: string, content: Array<{ type: 'text', text: string }> }>}
  */
-export async function handleRequestStopContainer({ container_name = '' } = {}) {
+export async function handleRequestStopContainer({ container_name = '' } = {}, context = {}) {
   const timestamp = new Date().toISOString();
+  const source = context?.source || 'mcp';
   try {
     const containers = await listContainers();
     const match = containers.find(c => c.name.toLowerCase() === container_name.toLowerCase() || c.name.toLowerCase().includes(container_name.toLowerCase()));
@@ -229,10 +241,12 @@ export async function handleRequestStopContainer({ container_name = '' } = {}) {
       tool_name: 'request_stop_container',
       target,
       status: 'pending',
-      result_summary: `Pending stop confirmation generated for ${target}`
+      result_summary: `Pending stop confirmation generated for ${target}`,
+      source
     });
 
     return {
+      action_id,
       content: [
         {
           type: 'text',
@@ -260,11 +274,13 @@ export async function handleRequestStopContainer({ container_name = '' } = {}) {
  * @param {Object} [args]
  * @param {string} [args.action_id]
  * @param {boolean} [args.confirmed]
+ * @param {Object} [context]
  * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
  */
-export async function handleConfirmAction({ action_id = '', confirmed = false } = {}) {
+export async function handleConfirmAction({ action_id = '', confirmed = false } = {}, context = {}) {
   const timestamp = new Date().toISOString();
   const pending = getPendingAction(action_id);
+  const source = context?.source || 'mcp';
 
   if (!pending) {
     logEntry({
@@ -272,7 +288,8 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
       action_id,
       tool_name: 'confirm_action',
       status: 'not_found',
-      error_message: 'No valid pending action found for this action_id'
+      error_message: 'No valid pending action found for this action_id',
+      source
     });
 
     return {
@@ -295,7 +312,8 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
       tool_name: 'confirm_action',
       target,
       status: 'declined',
-      result_summary: `Action declined by user for container ${target}`
+      result_summary: `Action declined by user for container ${target}`,
+      source
     });
 
     return {
@@ -316,7 +334,8 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
       action_id,
       tool_name: 'confirm_action',
       status: 'not_found',
-      error_message: 'Pending action was already consumed or expired'
+      error_message: 'Pending action was already consumed or expired',
+      source
     });
 
     return {
@@ -344,7 +363,8 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
       tool_name: 'confirm_action',
       target: actionToExecute.target,
       status: 'success',
-      result_summary: successSummary
+      result_summary: successSummary,
+      source
     });
 
     return {
@@ -368,7 +388,8 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
       target: actionToExecute.target,
       status: 'failure',
       error_message: rawErrorMessage,
-      result_summary: userMessage
+      result_summary: userMessage,
+      source
     });
 
     return {
@@ -381,6 +402,7 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
     };
   }
 }
+
 
 /**
  * Tool handler for diagnose_container_issue, wrapped with SQLite audit logging.

@@ -10,12 +10,19 @@ if (fs.existsSync(dbPath)) {
   try { fs.unlinkSync(dbPath); } catch {}
 }
 
+process.env.NODE_ENV = 'development';
 process.env.SQLITE_DB_PATH = dbPath;
 process.env.PORTAINER_URL = 'http://127.0.0.1:9879';
 process.env.PORTAINER_API_TOKEN = 'test_token';
 process.env.PORTAINER_ENDPOINT_ID = '1';
 process.env.AWS_REGION = 'us-east-1';
 process.env.BEDROCK_MODEL_ID = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
+process.env.MCP_SERVER_PUBLIC_URL = 'http://localhost:3000/mcp';
+process.env.OAUTH_CLIENT_ID = 'alexa_test_client';
+process.env.OAUTH_CLIENT_SECRET = 'alexa_test_secret';
+process.env.JWT_SIGNING_SECRET = 'test_jwt_secret';
+process.env.ALEXA_SKILL_ID = 'amzn1.ask.skill.test-id';
+process.env.ALEXA_VERIFY_REQUESTS = 'false';
 
 const { handleDiagnoseContainerIssue } = await import('./src/mcp/handlers.js');
 const { setBedrockClient, BedrockError } = await import('./src/services/ai.js');
