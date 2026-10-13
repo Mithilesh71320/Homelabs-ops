@@ -1,0 +1,46 @@
+version: "3.8"
+
+# Demo environment for homelab-ops-mcp Module 9 demonstration.
+# Three containers showing the full diagnostic lifecycle:
+#   demo-web   -> healthy nginx, always up
+#   demo-cache -> healthy Redis, always up
+#   demo-crashy -> Node app that leaks memory on POST /leak and gets OOM-killed
+
+services:
+  demo-web:
+    image: nginx:alpine
+    container_name: demo-web
+    restart: unless-stopped
+    ports:
+      - "8091:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  demo-cache:
+    image: redis:alpine
+    container_name: demo-cache
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  demo-crashy:
+    build:
+      context: ./crashy
+      dockerfile: Dockerfile
+    container_name: demo-crashy
+    restart: "no"
+    # Hard memory limit — OOM killer fires when Node exceeds this
+    mem_limit: 64m
+    memswap_limit: 64m
+    ports:
+      - "8092:3000"
+    environment:
+      - NODE_ENV=production

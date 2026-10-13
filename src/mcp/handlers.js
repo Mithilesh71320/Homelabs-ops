@@ -2,6 +2,7 @@ import {
   listContainers,
   getContainerLogs,
   getContainerStats,
+  getContainerState,
   restartContainer,
   stopContainer,
   PortainerError
@@ -96,6 +97,10 @@ export async function handlePing() {
 /**
  * Tool handler for get_homelab_summary, wrapped with SQLite audit logging.
  * Returns a high-level spoken health summary (<300 chars) of running, stopped, and unhealthy containers.
+ * Classification rules:
+ *   - running, up: healthy unless healthcheck shows "unhealthy"
+ *   - exited (0): completed (one-shot job, not a problem)
+ *   - exited (nonzero), dead, oomkilled, restarting: problem
  * @param {Object} [args]
  * @param {Object} [context]
  * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
@@ -107,6 +112,7 @@ export const handleGetHomelabSummary = withAudit('get_homelab_summary', async ()
   }
 
   let runningCount = 0;
+  let completedCount = 0;
   let stoppedCount = 0;
   const problemNames = [];
 
@@ -119,13 +125,32 @@ export const handleGetHomelabSummary = withAudit('get_homelab_summary', async ()
       if (statusLower.includes('unhealthy')) {
         problemNames.push(c.name);
       }
-    } else {
+    } else if (stateLower === 'restarting' || stateLower === 'dead') {
       stoppedCount++;
       problemNames.push(c.name);
+    } else if (stateLower === 'exited' || statusLower.startsWith('exited')) {
+      // Extract exit code from status string e.g. "Exited (0)" or "Exited (137)"
+      const exitCodeMatch = statusLower.match(/exited\s*\((\d+)\)/);
+      const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : null;
+      if (exitCode === 0) {
+        // Normal completion — not a problem
+        completedCount++;
+      } else {
+        // Nonzero exit, OOM kill (137), or unknown — problem
+        stoppedCount++;
+        problemNames.push(c.name);
+      }
+    } else {
+      // paused, created, unknown, etc.
+      stoppedCount++;
     }
   }
 
-  let summary = `Your homelab has ${containers.length} containers: ${runningCount} running, ${stoppedCount} stopped.`;
+  const parts = [`${runningCount} running`];
+  if (completedCount > 0) parts.push(`${completedCount} completed`);
+  parts.push(`${stoppedCount} stopped`);
+
+  let summary = `Your homelab has ${containers.length} containers: ${parts.join(', ')}.`;
   if (problemNames.length > 0) {
     summary += ` Problem containers: ${problemNames.join(', ')}.`;
   } else {
@@ -454,8 +479,9 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
 
 /**
  * Tool handler for diagnose_container_issue, wrapped with SQLite audit logging.
- * Reuses getContainerLogs to fetch tail logs, then calls analyzeLogs for AI diagnosis.
- * On BedrockError, falls back to raw logs with a user note instead of failing the request.
+ * Fetches container inspect state (ground truth) and logs, then calls analyzeLogs for AI diagnosis.
+ * State facts (oomKilled, exitCode, etc.) are injected into the Bedrock prompt as GROUND TRUTH.
+ * On BedrockError, falls back to state-facts + raw logs with a user note instead of failing the request.
  *
  * @param {Object} [args]
  * @param {string} [args.container_name]
@@ -463,10 +489,17 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
  */
 export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue', async (args = {}) => {
   const containerName = args.container_name || '';
-  const logs = await getContainerLogs(containerName, 50);
+
+  // Fetch state and logs in parallel; state failure is non-fatal
+  const [logs, state] = await Promise.allSettled([
+    getContainerLogs(containerName, 50),
+    getContainerState(containerName)
+  ]);
+  const logsText = logs.status === 'fulfilled' ? logs.value : '(log fetch failed)';
+  const containerState = state.status === 'fulfilled' ? state.value : null;
 
   try {
-    let { explanation, suggestedFix } = await analyzeLogs(logs);
+    let { explanation, suggestedFix } = await analyzeLogs(logsText, containerState);
     explanation = explanation.replace(/\.+$/, '').trim();
     suggestedFix = suggestedFix.replace(/\.+$/, '').trim();
     return {
@@ -475,10 +508,17 @@ export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue'
     };
   } catch (err) {
     if (err instanceof BedrockError || err?.name === 'BedrockError') {
-      return {
-        text: `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}. Here is the raw log tail for ${containerName}:\n\n${logs}`,
-        status: 'degraded'
-      };
+      // Build a state-grounded fallback message so the user still gets ground truth even without AI
+      let fallback = `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}.`;
+      if (containerState) {
+        if (containerState.oomKilled) {
+          fallback += ` Based on container state, ${containerName} was killed by the out-of-memory killer (exit code ${containerState.exitCode}).`;
+        } else if (containerState.exitCode !== 0) {
+          fallback += ` Based on container state, ${containerName} exited with code ${containerState.exitCode}.`;
+        }
+      }
+      fallback += ` Here is the raw log tail for ${containerName}:\n\n${logsText}`;
+      return { text: fallback, status: 'degraded' };
     }
     throw err;
   }

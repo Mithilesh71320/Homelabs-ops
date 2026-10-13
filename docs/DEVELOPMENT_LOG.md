@@ -260,3 +260,44 @@
 - **E2E Proof Transcript**: `node e2e_mcp_proof.js` executed 11 proof steps with 100% pass rate.
 - **Full Suite Pass**: `npm test` runs all 7 module test suites (Modules 2–8) sequentially with 100% pass rate.
 
+---
+
+## Module 9: Demo Reliability & Grounded AI Diagnosis
+**Date:** 2026-10-13
+
+### What Was Built
+- **Task A: Carry-Over Fixes & Classification**:
+  - `get_homelab_summary` in `src/mcp/handlers.js`: Corrected container health classification so `Exited (0)` is identified as a normally completed one-shot job rather than a failure. Only non-zero exit codes, unhealthy health checks, restarting loops, dead states, or OOM kills are flagged as problems. Kept spoken response under 295 characters.
+  - `getContainerStats` in `src/services/portainer.js`: Fixed CPU % calculation to take two samples 1 second apart if `precpu_stats` has no prior measurement, using the standard Docker delta formula `((cpu_delta / system_delta) * online_cpus * 100)`. Accounted for cgroups v1 cache and cgroups v2 `inactive_file` in memory calculations.
+- **Task B: Ground Diagnosis in Container State**:
+  - `getContainerState(containerName)` added to `src/services/portainer.js`: Queries the Docker inspect endpoint (`/api/endpoints/:id/docker/containers/:name/json`) and returns ground-truth facts: `status`, `exitCode`, `oomKilled`, `restartCount`, `startedAt`, `finishedAt`.
+  - `analyzeLogs(logsText, containerState)` in `src/services/ai.js`: Injects state facts as `GROUND TRUTH` in system prompt and prompt body. When `oomKilled: true`, mandates that the explanation explicitly states the container ran out of memory.
+  - `diagnose_container_issue` in `src/mcp/handlers.js`: Fetches container state and logs in parallel; passes state to `analyzeLogs`. On Bedrock failure or timeout, generates a state-grounded fallback message that explicitly cites exit code and OOM kill facts alongside raw log tail.
+- **Task C: Demo Environment (`demo/`)**:
+  - `demo/docker-compose.yml`: Defines three demo services: `demo-web` (`nginx:alpine`), `demo-cache` (`redis:alpine`), and `demo-crashy` (`node:20-alpine`, `mem_limit: 64m`, `restart: "no"`).
+  - `demo/crashy/`: Node.js demo app with `POST /leak` allocating 8MB Buffers every 200ms until killed by Linux OOM killer (exit code 137).
+  - Added npm scripts to `package.json`: `demo:up`, `demo:crash`, `demo:reset`, `demo:down`.
+  - `docs/DEMO_SETUP.md`: Comprehensive 3-minute storyboard guide covering healthy summary, crash trigger, exit-137 inspection, voice diagnosis, 2-step restart confirmation, and SQLite audit log source-tag verification.
+- **Comprehensive Test Suite (`test_module9.js`)**:
+  - 23 unit and integration checks validating `Exited (0)` vs `Exited (137)` classification, CPU delta formulas, container inspect mocks, ground-truth prompt constraints, and Bedrock fallback state reporting.
+
+### Files Touched
+- `package.json`
+- `src/services/portainer.js`
+- `src/services/ai.js`
+- `src/mcp/handlers.js`
+- `demo/docker-compose.yml`
+- `demo/crashy/Dockerfile`
+- `demo/crashy/package.json`
+- `demo/crashy/index.js`
+- `docs/DEMO_SETUP.md`
+- `test_module2.js`
+- `test_module9.js`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification Results
+- **Summary Classification**: Exited (0) verified as completed job; Exited (137), nonzero exit codes, restarting, and unhealthy containers properly flagged.
+- **CPU Delta**: Verified under realistic multi-core loads with fixture tests; cold first samples handled gracefully.
+- **State-Grounded AI**: System prompt strictly enforces `oomKilled` state facts. Bedrock error fallback verified to report OOM kill status.
+- **Test Suite Pass**: `test_module9.js` passed 23/23 tests.
+

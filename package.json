@@ -7,8 +7,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js && node test_module7.js && node test_module8.js",
-    "e2e:mcp": "node e2e_mcp_proof.js"
+    "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js && node test_module7.js && node test_module8.js && node test_module9.js",
+    "e2e:mcp": "node e2e_mcp_proof.js",
+    "demo:up": "docker compose -f demo/docker-compose.yml up -d --build",
+    "demo:crash": "curl -s -X POST http://localhost:8092/leak | node -e \"process.stdin.resume(); process.stdin.on('data', d => console.log(d.toString()))\"",
+    "demo:reset": "docker compose -f demo/docker-compose.yml rm -sf demo-crashy && docker compose -f demo/docker-compose.yml up -d --build demo-crashy",
+    "demo:down": "docker compose -f demo/docker-compose.yml down --remove-orphans"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1143.0",

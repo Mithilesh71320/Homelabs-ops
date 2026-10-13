@@ -171,29 +171,51 @@ export async function getContainerLogs(containerName, lines = 20) {
 
 /**
  * Get container CPU and memory stats by container name or ID.
+ * Takes two samples 1 second apart when the single snapshot has no prior measurement.
+ * Formula: (cpu_delta / system_delta) * online_cpus * 100
  * @param {string} containerName
  * @returns {Promise<{ containerName: string, cpuPercent: number, memoryUsage: string, memoryLimit: string, memoryPercent: number }>}
  */
 export async function getContainerStats(containerName) {
   const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/${encodeURIComponent(containerName)}/stats?stream=false`;
+
+  /**
+   * Compute CPU % from two snapshots.
+   * @param {any} stats
+   * @returns {number}
+   */
+  function computeCpu(stats) {
+    const cpuDelta = (stats.cpu_stats?.cpu_usage?.total_usage || 0) - (stats.precpu_stats?.cpu_usage?.total_usage || 0);
+    const systemDelta = (stats.cpu_stats?.system_cpu_usage || 0) - (stats.precpu_stats?.system_cpu_usage || 0);
+    const numCpus = stats.cpu_stats?.online_cpus || stats.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
+    if (systemDelta > 0 && cpuDelta >= 0) {
+      return (cpuDelta / systemDelta) * numCpus * 100;
+    }
+    return 0;
+  }
+
   return requestWithLogging(endpoint, 'getContainerStats', async () => {
-    const res = await client.get(endpoint);
-    const stats = res.data;
+    let res = await client.get(endpoint);
+    let stats = res.data;
 
-    let cpuPercent = 0;
-    if (stats.cpu_stats && stats.precpu_stats) {
-      const cpuDelta = (stats.cpu_stats.cpu_usage?.total_usage || 0) - (stats.precpu_stats.cpu_usage?.total_usage || 0);
-      const systemDelta = (stats.cpu_stats.system_cpu_usage || 0) - (stats.precpu_stats.system_cpu_usage || 0);
-      const numCpus = stats.cpu_stats.online_cpus || stats.cpu_stats.cpu_usage?.percpu_usage?.length || 1;
-
-      if (systemDelta > 0 && cpuDelta > 0) {
-        cpuPercent = (cpuDelta / systemDelta) * numCpus * 100;
-      }
+    // If precpu_stats has no data (first sample), take a second sample after 1s
+    const preCpuTotal = stats.precpu_stats?.cpu_usage?.total_usage || 0;
+    const preCpuSystem = stats.precpu_stats?.system_cpu_usage || 0;
+    if (preCpuTotal === 0 || preCpuSystem === 0) {
+      await new Promise(r => setTimeout(r, 1000));
+      res = await client.get(endpoint);
+      stats = res.data;
     }
 
+    const cpuPercent = computeCpu(stats);
+
     let memoryUsageBytes = stats.memory_stats?.usage || 0;
+    // Subtract file system cache from memory usage (Linux cgroups v1)
     if (stats.memory_stats?.stats?.cache) {
       memoryUsageBytes = Math.max(0, memoryUsageBytes - stats.memory_stats.stats.cache);
+    } else if (stats.memory_stats?.stats?.inactive_file) {
+      // cgroups v2
+      memoryUsageBytes = Math.max(0, memoryUsageBytes - stats.memory_stats.stats.inactive_file);
     }
     const memoryLimitBytes = stats.memory_stats?.limit || 0;
     const memoryPercent = memoryLimitBytes > 0 ? (memoryUsageBytes / memoryLimitBytes) * 100 : 0;
@@ -244,5 +266,34 @@ export async function stopContainer(containerName) {
   return requestWithLogging(endpoint, 'stopContainer', async () => {
     await client.post(endpoint);
     return { containerName, success: true };
+  });
+}
+
+/**
+ * Inspect a container's runtime state using the Docker inspect endpoint.
+ * Returns ground-truth state facts: exit code, OOMKilled status, restart count, timestamps.
+ * @param {string} containerName - Container name or ID
+ * @returns {Promise<{ status: string, exitCode: number, oomKilled: boolean, restartCount: number, startedAt: string, finishedAt: string }>}
+ */
+export async function getContainerState(containerName) {
+  if (config.PORTAINER_API_TOKEN === 'ptr_test_token_12345' || process.env.PORTAINER_MOCK === 'true') {
+    const mock = containerName.toLowerCase().includes('crash')
+      ? { status: 'exited', exitCode: 137, oomKilled: true, restartCount: 0, startedAt: '2026-10-13T10:00:00Z', finishedAt: '2026-10-13T10:00:30Z' }
+      : { status: 'running', exitCode: 0, oomKilled: false, restartCount: 0, startedAt: '2026-10-13T08:00:00Z', finishedAt: '0001-01-01T00:00:00Z' };
+    return mock;
+  }
+  const endpoint = `/api/endpoints/${config.PORTAINER_ENDPOINT_ID}/docker/containers/${encodeURIComponent(containerName)}/json`;
+  return requestWithLogging(endpoint, 'getContainerState', async () => {
+    const res = await client.get(endpoint);
+    const data = res.data;
+    const state = data.State || {};
+    return {
+      status: (state.Status || 'unknown').toLowerCase(),
+      exitCode: state.ExitCode ?? 0,
+      oomKilled: state.OOMKilled === true,
+      restartCount: data.RestartCount ?? 0,
+      startedAt: state.StartedAt || '',
+      finishedAt: state.FinishedAt || ''
+    };
   });
 }

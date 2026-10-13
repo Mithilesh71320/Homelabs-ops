@@ -180,12 +180,25 @@ serverProc.stderr.on('data', d => pinoLogs += d.toString());
 serverProc.on('error', err => console.error('Spawn error:', err));
 serverProc.on('exit', code => console.log('Server process exited with code:', code));
 
-await new Promise(r => setTimeout(r, 3500));
+// Wait for server to be ready with retry loop
+let health = null;
+for (let i = 0; i < 20; i++) {
+  try {
+    const res = await fetch('http://127.0.0.1:3050/health');
+    if (res.ok) {
+      health = await res.json();
+      break;
+    }
+  } catch (err) {
+    // waiting for server to start
+  }
+  await new Promise(r => setTimeout(r, 300));
+}
 console.log('Server process output logs:\n', pinoLogs);
-
-// Health check
-const health = await (await fetch('http://127.0.0.1:3050/health')).json();
 console.log('GET /health result:', JSON.stringify(health));
+if (!health) {
+  throw new Error('Server failed to start on port 3050 within timeout');
+}
 
 const session = await createMcpSession(3050);
 

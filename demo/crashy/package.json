@@ -1,0 +1,10 @@
+{
+  "name": "demo-crashy",
+  "version": "1.0.0",
+  "description": "OOM-crash demo container for homelab-ops-mcp Module 9",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}
