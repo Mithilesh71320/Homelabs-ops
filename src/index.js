@@ -8,6 +8,7 @@ import { oauthRouter } from './auth/oauth.js';
 import { verifyToken } from './auth/verifyToken.js';
 import { alexaSkillHandler } from './alexa/adapter.js';
 import { checkBedrockHealth } from './services/ai.js';
+import { renderDashboardHtml } from './dashboard.js';
 
 const app = express();
 const PORT = config.PORT || 3000;
@@ -16,7 +17,7 @@ const PORT = config.PORT || 3000;
 app.set('trust proxy', true);
 
 // Helmet security headers
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // Parse JSON request body with 100kb limit and raw body capture for Alexa verification
 app.use(express.json({
@@ -54,6 +55,14 @@ app.use('/token', tokenLimiter);
 // 1. Unauthenticated Health Check Endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Interactive Developer Dashboard for browser requests
+app.get('/', (req, res, next) => {
+  if (req.accepts('html')) {
+    return res.send(renderDashboardHtml());
+  }
+  next();
 });
 
 // 2. Unauthenticated OAuth Metadata & Token Issuance Endpoints
