@@ -342,3 +342,53 @@
 - **Standalone Package Pass**: `mcp-confirm-gate` test suite passed 4/4 tests.
 - **Hygiene Verification**: Git history clean of leaked credentials; sensitive local files uncommitted and ignored.
 
+---
+
+## Module 11: Final Hardening and Submission Readiness
+**Date:** 2026-10-17  
+**Branch:** `feature/module-11-final-hardening` off `main`
+
+### What Was Built
+- **Task A: Bedrock Model Check & Fail-Soft Diagnosis**:
+  - Centralized `BEDROCK_MODEL_ID` across `.env.example`, `src/config.js`, `src/services/ai.js`, and `src/mcp/handlers.js` with zero hardcoded retired model fallbacks.
+  - Implemented `checkBedrockHealth(client, modelId)` in `src/services/ai.js` executing a non-destructive ping Converse request with 6-second timeout.
+  - Added non-fatal startup check in `src/index.js` logging model ID, region, and status OK / AWS error.
+  - Created `scripts/check_bedrock.js` and added `"check:bedrock"` script to `package.json`.
+  - Implemented deterministic fail-soft diagnosis in `src/mcp/handlers.js` (`buildDeterministicDiagnosis`) labeled `"Generated without AI (Bedrock unavailable)"` combining Docker inspect facts (`oomKilled`, `exitCode`, `restartCount`) and raw log tails; guarantees tool never throws to callers on Bedrock errors.
+  - Replaced hardcoded "Claude 3.5" wording with "a Claude model on Amazon Bedrock (configurable via BEDROCK_MODEL_ID)" across `README.md` and `docs/DEMO_SETUP.md`.
+  - Built `test_module11.js` asserting fail-soft responses and inspect facts across four mocked Bedrock failure modes (`AccessDeniedException`, `ResourceNotFoundException`/EOL, `ThrottlingException`, and `AbortError`/10s timeout).
+- **Task B: Reproducibility and Claims Audit**:
+  - Fresh-clone verification: Cloned into an isolated temp directory, ran `npm ci`, environment setup, and test suites. Documented Windows Node v24 SQLite compilation friction in `docs/FRESH_CLONE_NOTES.md` and updated `README.md` to recommend Node v20/v22 LTS.
+  - Created `docs/CLAIMS_AUDIT.md`: Rigorous audit matrix mapping all 14 concrete architectural, security, protocol, and operational claims in `README.md` to specific source files and automated test assertions.
+  - Created `scripts/preflight.sh` (bash) and `scripts/preflight.js` (Node.js) executing: `npm test`, Module 10 secret-scan regexes, untracked `.env`/`*.db` check, `check:bedrock`, and public tunnel URL health check. Added `"preflight"` script to `package.json`.
+- **Task C: Author To-Do Inventory and Devpost Draft**:
+  - Created `docs/AUTHOR_TODO.md`: Cataloged all author-dependent items (Devpost rules verification for Alexa+ track, live Alexa Developer Console test, Bedrock credential verification, video demo recording, repository push, and Devpost submission) categorized by submission-blocking vs nice-to-have priority.
+  - Created `docs/DEVPOST_SUBMISSION.md`: Concise, factual Devpost draft under 600 words conforming strictly to standard Devpost sections, drawing exclusively from repository documentation and friction logs.
+
+### Files Touched
+- `src/config.js`
+- `src/services/ai.js`
+- `src/index.js`
+- `src/mcp/handlers.js`
+- `package.json`
+- `.env.example`
+- `README.md`
+- `docs/DEMO_SETUP.md`
+- `docs/FRESH_CLONE_NOTES.md`
+- `docs/CLAIMS_AUDIT.md`
+- `docs/AUTHOR_TODO.md`
+- `docs/DEVPOST_SUBMISSION.md`
+- `scripts/check_bedrock.js`
+- `scripts/preflight.sh`
+- `scripts/preflight.js`
+- `test_module2.js`
+- `test_module5.js`
+- `test_module11.js`
+- `docs/DEVELOPMENT_LOG.md`
+
+### Verification Results
+- **Module 11 Test Suite**: `test_module11.js` passed 8/8 tests.
+- **Full Regression Test Suite**: `npm test` executed across all modules (Modules 2, 3, 4, 5, 6, 7, 8, 9, 11) with 100% pass rate.
+- **Invariants Preserved**: Zero changes to Alexa request verification, OAuth, rate limiting, or confirmation lock logic.
+
+
