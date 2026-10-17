@@ -7,6 +7,7 @@ import { createMcpServer } from './mcp/server.js';
 import { oauthRouter } from './auth/oauth.js';
 import { verifyToken } from './auth/verifyToken.js';
 import { alexaSkillHandler } from './alexa/adapter.js';
+import { checkBedrockHealth } from './services/ai.js';
 
 const app = express();
 const PORT = config.PORT || 3000;
@@ -79,6 +80,19 @@ app.all('/', apiLimiter, mcpOrAlexaRouter);
 
 app.listen(PORT, '127.0.0.1', () => {
   logger.info(`HomeLab Ops MCP server listening on 127.0.0.1:${PORT}`);
+
+  // Non-fatal Bedrock startup health check
+  checkBedrockHealth()
+    .then((res) => {
+      if (res.ok) {
+        logger.info(`Bedrock check: model=${res.modelId}, region=${res.region}, status=OK`);
+      } else {
+        logger.warn(`Bedrock check: model=${res.modelId}, region=${res.region}, status=ERROR: ${res.error}`);
+      }
+    })
+    .catch((err) => {
+      logger.warn(`Bedrock check: model=${config.BEDROCK_MODEL_ID}, region=${config.AWS_REGION}, status=ERROR: ${err.message}`);
+    });
 });
 
 

@@ -478,10 +478,48 @@ export async function handleConfirmAction({ action_id = '', confirmed = false } 
 
 
 /**
+ * Builds a deterministic diagnosis from container inspect state facts and tail logs.
+ * Used when Bedrock AI is unreachable, throttling, expired/EOL, or timed out.
+ *
+ * @param {string} containerName
+ * @param {{ status: string, exitCode: number, oomKilled: boolean, restartCount: number, startedAt: string, finishedAt: string } | null} containerState
+ * @param {string} logsText
+ * @returns {string}
+ */
+export function buildDeterministicDiagnosis(containerName, containerState, logsText) {
+  let explanation = '';
+  let recommendation = '';
+
+  if (containerState?.oomKilled) {
+    explanation = `${containerName} was terminated by the Linux Out-Of-Memory (OOM) killer (exit code ${containerState.exitCode || 137}).`;
+    recommendation = `Increase the container's memory limit or reduce application buffer allocations.`;
+  } else if (containerState?.exitCode !== undefined && containerState.exitCode !== 0) {
+    explanation = `${containerName} exited with non-zero exit code ${containerState.exitCode}.`;
+    if (containerState.restartCount > 0) {
+      explanation += ` It has restarted ${containerState.restartCount} time(s).`;
+    }
+    recommendation = `Check recent error logs, configuration syntax, and file permissions.`;
+  } else if (containerState?.status === 'restarting') {
+    explanation = `${containerName} is trapped in a crash-restart loop (restart count: ${containerState.restartCount}).`;
+    recommendation = `Inspect container logs and dependencies to resolve the crash loop.`;
+  } else {
+    explanation = `${containerName} is currently in state "${containerState?.status || 'unknown'}" (exit code ${containerState?.exitCode ?? 0}).`;
+    recommendation = `Review recent application logs for unexpected events.`;
+  }
+
+  const logLines = logsText ? logsText.trim().split('\n').filter(Boolean) : [];
+  const tailSnippet = logLines.slice(-5).join('\n');
+
+  return `Generated without AI (Bedrock unavailable): ${explanation} Recommendation: ${recommendation}${tailSnippet ? `\n\nRecent logs:\n${tailSnippet}` : ''}`;
+}
+
+/**
  * Tool handler for diagnose_container_issue, wrapped with SQLite audit logging.
  * Fetches container inspect state (ground truth) and logs, then calls analyzeLogs for AI diagnosis.
  * State facts (oomKilled, exitCode, etc.) are injected into the Bedrock prompt as GROUND TRUTH.
- * On BedrockError, falls back to state-facts + raw logs with a user note instead of failing the request.
+ * Fails soft: If Bedrock errors (access denied, EOL/not found, throttling, timeout after 10s),
+ * returns a deterministic diagnosis labeled "Generated without AI (Bedrock unavailable)".
+ * It NEVER throws to the Alexa or MCP caller.
  *
  * @param {Object} [args]
  * @param {string} [args.container_name]
@@ -507,20 +545,12 @@ export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue'
       status: 'success'
     };
   } catch (err) {
-    if (err instanceof BedrockError || err?.name === 'BedrockError') {
-      // Build a state-grounded fallback message so the user still gets ground truth even without AI
-      let fallback = `I couldn't run deeper AI analysis right now because ${err.userMessage || 'the AI service encountered an error'}.`;
-      if (containerState) {
-        if (containerState.oomKilled) {
-          fallback += ` Based on container state, ${containerName} was killed by the out-of-memory killer (exit code ${containerState.exitCode}).`;
-        } else if (containerState.exitCode !== 0) {
-          fallback += ` Based on container state, ${containerName} exited with code ${containerState.exitCode}.`;
-        }
-      }
-      fallback += ` Here is the raw log tail for ${containerName}:\n\n${logsText}`;
-      return { text: fallback, status: 'degraded' };
-    }
-    throw err;
+    // Fail soft: never throw to caller on any Bedrock error (access denied, EOL/not found, throttling, timeout)
+    const fallbackText = buildDeterministicDiagnosis(containerName, containerState, logsText);
+    return {
+      text: fallbackText,
+      status: 'degraded'
+    };
   }
 });
 

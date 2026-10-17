@@ -13,7 +13,7 @@
 
 1. **Flying Blind Away from the Keyboard**: Homelab owners run mission-critical local services (media servers, Home Assistant, DNS, storage) but cannot quickly check fleet status while cooking, working, or away from a terminal. HomeLab Ops provides sub-300-character voice summaries and live container telemetry without opening a dashboard.
 2. **Unsafe LLM Tool Execution**: Autonomous AI agents equipped with infrastructure tools can accidentally crash services or trigger destructive actions during hallucinations. HomeLab Ops enforces a **two-step confirmation lock with single-use consume-before-execute tokens**, ensuring destructive operations (restarts, stops) cannot run without explicit human consent.
-3. **Opaque Container Crashes**: When a container fails from an out-of-memory (OOM) kill or non-zero exit, raw logs are often empty or misleading. HomeLab Ops inspects the Docker daemon's runtime state facts (`OOMKilled`, `ExitCode`, timestamps) and injects them as **ground truth** into Amazon Bedrock (Claude 3.5), delivering factual root-cause explanations and actionable remediation steps.
+3. **Opaque Container Crashes**: When a container fails from an out-of-memory (OOM) kill or non-zero exit, raw logs are often empty or misleading. HomeLab Ops inspects the Docker daemon's runtime state facts (`OOMKilled`, `ExitCode`, timestamps) and injects them as **ground truth** into a Claude model on Amazon Bedrock (configurable via `BEDROCK_MODEL_ID`), delivering factual root-cause explanations and actionable remediation steps.
 
 ---
 
@@ -53,7 +53,7 @@ graph TD
     subgraph External Infrastructure
         McpServer -->|REST API X-API-Key| Portainer[Portainer Community Edition]
         Portainer -->|Docker Socket| DockerEngine[Docker Daemon & Containers]
-        McpServer -->|Converse API| Bedrock[Amazon Bedrock\nClaude 3.5 Sonnet / Haiku]
+        McpServer -->|Converse API| Bedrock["Amazon Bedrock\nClaude Model (BEDROCK_MODEL_ID)"]
     end
 
     subgraph External Agents
@@ -103,7 +103,7 @@ graph TD
 - Node.js v20.x or higher
 - Docker & Docker Compose
 - Portainer Server (Community Edition)
-- AWS Account with Amazon Bedrock model access (`anthropic.claude-3-5-sonnet` or `haiku` in `us-east-1`)
+- AWS Account with Amazon Bedrock model access (a Claude model on Amazon Bedrock, configurable via `BEDROCK_MODEL_ID`, e.g. in `us-east-1`)
 - Cloudflare Tunnel (`cloudflared`) for public endpoint routing
 
 ### 2. Environment Configuration (`.env`)
@@ -184,9 +184,9 @@ For complete shot-by-shot instructions, review [docs/DEMO_SETUP.md](docs/DEMO_SE
 - **Dual-Protocol Adaptability**: Unifies incoming voice intent requests and external MCP JSON-RPC calls over a single hardened Express host.
 
 ### 2. AWS Builder Track
-- **Amazon Bedrock Converse API**: Integrated in [`src/services/ai.js`](src/services/ai.js) using Claude 3.5 Sonnet / Haiku.
+- **Amazon Bedrock Converse API**: Integrated in [`src/services/ai.js`](src/services/ai.js) using a Claude model on Amazon Bedrock (configurable via `BEDROCK_MODEL_ID`).
 - **State-Grounded Prompting**: Docker inspect state facts (`oomKilled`, `exitCode`, `restartCount`) are injected as unalterable ground truth, preventing hallucinations on silent container crashes.
-- **Fault-Tolerant Fallback**: Implements 8-second request abort timeouts and graceful state preservation if AWS Bedrock is temporarily unreachable.
+- **Fault-Tolerant Fallback**: Implements 10-second request abort timeouts and deterministic diagnosis fallback labeled `"Generated without AI (Bedrock unavailable)"` if AWS Bedrock is unreachable, throttling, or EOL.
 
 ### 3. Open Source Track
 - **Standalone Package**: Extracted the generic confirmation engine into an independent open-source package: [`mcp-confirm-gate`](https://github.com/TODO-author/mcp-confirm-gate).

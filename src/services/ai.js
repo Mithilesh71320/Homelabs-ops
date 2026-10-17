@@ -81,7 +81,7 @@ export async function analyzeLogs(logsText, containerState = null) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
-  }, 8000);
+  }, 10000);
 
   // Compose state ground-truth constraints for the system prompt
   const stateSummary = buildStateSummary(containerState);
@@ -162,7 +162,7 @@ SUGGESTED_FIX: <one plain English sentence recommending how to fix or prevent th
     const isTimeout = err.name === 'AbortError' || controller.signal.aborted;
 
     const technicalMsg = isTimeout
-      ? `Bedrock Converse API call timed out after 8000ms for model ${modelId}`
+      ? `Bedrock Converse API call timed out after 10000ms for model ${modelId}`
       : `Bedrock Converse API call failed for model ${modelId}: ${err.message}`;
 
     const userMsg = isTimeout
@@ -181,5 +181,47 @@ SUGGESTED_FIX: <one plain English sentence recommending how to fix or prevent th
     });
 
     throw new BedrockError(technicalMsg, userMsg);
+  }
+}
+
+/**
+ * Checks Bedrock model availability by sending a tiny Converse request.
+ * Returns modelId, region, and status OK or the exact AWS error.
+ *
+ * @param {BedrockRuntimeClient} [client]
+ * @param {string} [modelId]
+ * @returns {Promise<{ ok: boolean, modelId: string, region: string, error?: string }>}
+ */
+export async function checkBedrockHealth(client = null, modelId = null) {
+  const targetClient = client || getBedrockClient();
+  const targetModelId = modelId || config.BEDROCK_MODEL_ID;
+  const region = config.AWS_REGION;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const command = new ConverseCommand({
+      modelId: targetModelId,
+      messages: [
+        {
+          role: 'user',
+          content: [{ text: 'ping' }]
+        }
+      ],
+      inferenceConfig: {
+        maxTokens: 5
+      }
+    });
+
+    await targetClient.send(command, { abortSignal: controller.signal });
+    clearTimeout(timer);
+    return { ok: true, modelId: targetModelId, region };
+  } catch (err) {
+    clearTimeout(timer);
+    const errorMsg = err.name === 'AbortError' || controller.signal.aborted
+      ? 'Request timed out after 6000ms'
+      : (err.message || String(err));
+    return { ok: false, modelId: targetModelId, region, error: errorMsg };
   }
 }

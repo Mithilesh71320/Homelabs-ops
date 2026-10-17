@@ -11,7 +11,7 @@
 |---|---|
 | Docker Desktop (or Docker Engine) | 24.x |
 | Node.js | 20.x |
-| AWS credentials for Bedrock | `us-east-1` access to `anthropic.claude-3-5-haiku-20241022-v1:0` |
+| AWS credentials for Bedrock | Configured via `BEDROCK_MODEL_ID` (verified with `npm run check:bedrock`) |
 | Running Portainer | API token in `.env` |
 
 ---
@@ -23,9 +23,11 @@ PORTAINER_URL=https://portainer.example.com
 PORTAINER_API_TOKEN=ptr_XXXXXXXXXXXXXXXXXXXXXXXXXX
 PORTAINER_ENDPOINT_ID=1
 AWS_REGION=us-east-1
-BEDROCK_MODEL_ID=anthropic.claude-3-5-haiku-20241022-v1:0
+BEDROCK_MODEL_ID=your-confirmed-bedrock-model-id
 PORT=3095
 ```
+
+> **Note**: Run `npm run check:bedrock` to verify your `BEDROCK_MODEL_ID` before recording.
 
 ---
 
