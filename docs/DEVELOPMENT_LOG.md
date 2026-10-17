@@ -301,3 +301,44 @@
 - **State-Grounded AI**: System prompt strictly enforces `oomKilled` state facts. Bedrock error fallback verified to report OOM kill status.
 - **Test Suite Pass**: `test_module9.js` passed 23/23 tests.
 
+---
+
+## Module 10: Submission Kit & Open Source Safety Package
+**Date:** 2026-10-17
+
+### What Was Built
+- **Task A: Root README.md Rewrite**:
+  - Rewrote `README.md` for hackathon judging with a 1-paragraph pitch addressing the three core problems (blind away from keyboard, unsafe tool execution, opaque crashes).
+  - Designed full Mermaid architecture diagram detailing the dual-protocol path (Alexa voice -> custom-skill adapter -> in-process MCP client -> McpServer vs external MCP clients -> OAuth 2.1 -> McpServer), Portainer REST integration, Bedrock Converse API, SQLite audit trail, and Cloudflare Tunnel transport.
+  - Formulated complete security model: localhost binding (`127.0.0.1`), 120s TTL confirmation locks, atomic consume-before-execute tokens, request signature verification, rate limiting, and source-tagged audit logs.
+  - Documented all 14 environment configuration variables in `.env.example`, testing procedures (`npm test`, `npm run e2e:mcp`), demo environment instructions, hackathon track mapping, and honest limitations/roadmap (bridge status, Proxmox as future roadmap, single-user design).
+- **Task B: Developer Feedback & Friction Logs**:
+  - Created `docs/PRODUCT_FEEDBACK.md`: Detailed developer feedback covering 6 core technologies (MCP TypeScript SDK, Portainer API, Amazon Bedrock Converse API, Cloudflare Tunnel, ASK SDK / `ask-sdk-express-adapter`, and Alexa AI CLI), prefilled strictly from implementation facts in the development log.
+  - Created `docs/FRICTION_LOG.md`: Documented 7 technical friction hurdles encountered during implementation (Portainer binary log headers, Docker stats cold sample CPU calculation, OOM kill log silence, SSML special character escaping, ASK SDK raw body capture, Express rate limit IPv6 validation, and one-shot job exit 0 classification) with workarounds and actionable suggestions.
+- **Task C: Video Demonstration Storyboard**:
+  - Created `docs/VIDEO_SCRIPT.md`: Precise shot-by-shot script targeting 2:45 runtime (under 3:00 cap) with split-screen guidance (voice device on left, Portainer/terminal on right), exact spoken narration, ~20s `npm run e2e:mcp` live protocol beat, Portainer inspect reveal, and audit log reveal.
+- **Task D: Standalone Open Source Package (`mcp-confirm-gate`)**:
+  - Created standalone repository `../mcp-confirm-gate` with independent Git history and zero runtime dependency on HomeLab Ops.
+  - Implemented `ActionStore` with configurable TTL, background sweep timer, and atomic `consumeAction` single-use guarantees.
+  - Implemented `registerConfirmationTools` helper registering `request_*` tools and a unified `confirm_action` tool with audit callback hooks on standard `McpServer` instances.
+  - Built comprehensive `node:test` suite (`test/confirm_gate.test.js`) verifying single-use consumption, TTL expiration, decline paths, and unknown action IDs (4/4 tests passed).
+  - Packaged with MIT License, `.gitignore`, and detailed README with installation steps, a 20-line usage example, and human-in-the-loop safety rationale.
+- **Task E: Pre-Publication Hygiene & Secret Scanning**:
+  - Executed secret scan across full Git commit history; verified zero AWS access keys (`AKIA...`), private keys, or actual API tokens exist in repository history.
+  - Verified `.env`, `audit.db`, and `*.log` are untracked and strictly ignored via `.gitignore`.
+  - Confirmed `.env.example` comprehensively covers all 14 required environment variables.
+
+### Files Touched
+- `README.md`
+- `docs/PRODUCT_FEEDBACK.md`
+- `docs/FRICTION_LOG.md`
+- `docs/VIDEO_SCRIPT.md`
+- `docs/DEVELOPMENT_LOG.md`
+- `../mcp-confirm-gate/*` (independent standalone package)
+
+### Verification Results
+- **Runtime Code Preservation**: Zero modifications made to runtime code under `src/`, `demo/`, or tests.
+- **Test Suite Pass**: `npm test` continues to pass 100% across all modules.
+- **Standalone Package Pass**: `mcp-confirm-gate` test suite passed 4/4 tests.
+- **Hygiene Verification**: Git history clean of leaked credentials; sensitive local files uncommitted and ignored.
+
