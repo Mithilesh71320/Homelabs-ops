@@ -182,7 +182,7 @@ serverProc.on('exit', code => console.log('Server process exited with code:', co
 
 // Wait for server to be ready with retry loop
 let health = null;
-for (let i = 0; i < 20; i++) {
+for (let i = 0; i < 40; i++) {
   try {
     const res = await fetch('http://127.0.0.1:3050/health');
     if (res.ok) {

@@ -100,7 +100,7 @@ graph TD
 ## Quick Start
 
 ### 1. Prerequisites
-- Node.js v20.x or higher
+- Node.js v20.x or v22.x LTS (recommended; Node v24 requires local C++ build tools for SQLite native bindings on Windows)
 - Docker & Docker Compose
 - Portainer Server (Community Edition)
 - AWS Account with Amazon Bedrock model access (a Claude model on Amazon Bedrock, configurable via `BEDROCK_MODEL_ID`, e.g. in `us-east-1`)
@@ -136,6 +136,9 @@ cp .env.example .env
 # Install dependencies
 npm install
 
+# Check Amazon Bedrock model connectivity
+npm run check:bedrock
+
 # Start development server with auto-reload
 npm run dev
 
@@ -146,10 +149,13 @@ npm start
 ### 4. Running Verification Test Suites
 
 ```bash
-# Run full comprehensive test suite (Modules 2 through 9)
+# Run full comprehensive test suite (Modules 2 through 11, fully mocked)
 npm test
 
-# Run the automated 11-step MCP protocol proof script
+# Run the automated 11-step MCP protocol proof script against a running server:
+# Terminal 1:
+npm start
+# Terminal 2:
 npm run e2e:mcp
 ```
 

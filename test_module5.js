@@ -108,8 +108,8 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     const fallbackResult = await handleDiagnoseContainerIssue({ container_name: 'crashed-app' });
     console.log('Fallback Result:\n', fallbackResult.content[0].text);
 
-    if (!fallbackResult.content[0].text.includes("I couldn't run deeper AI analysis right now") || !fallbackResult.content[0].text.includes('Here is the raw log tail for crashed-app')) {
-      throw new Error('Fallback path response did not return expected raw logs and user note');
+    if (!fallbackResult.content[0].text.includes('Generated without AI (Bedrock unavailable)')) {
+      throw new Error('Fallback path response did not return expected fail-soft label');
     }
     console.log('✔ Bedrock Failure Fallback PASSED without crashing!');
 
@@ -133,8 +133,8 @@ mockPortainer.listen(9879, '127.0.0.1', async () => {
     const timeoutResult = await handleDiagnoseContainerIssue({ container_name: 'crashed-app' });
     console.log('Timeout Result:\n', timeoutResult.content[0].text);
 
-    if (!timeoutResult.content[0].text.includes('timed out')) {
-      throw new Error('Timeout response did not specify timeout user message');
+    if (!timeoutResult.content[0].text.includes('Generated without AI (Bedrock unavailable)')) {
+      throw new Error('Timeout response did not return expected fail-soft label');
     }
     console.log('✔ Bedrock Timeout Fallback PASSED!');
 

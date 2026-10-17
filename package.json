@@ -9,6 +9,7 @@
     "dev": "node --watch src/index.js",
     "test": "node test_module2.js && node test_module3.js && node test_module4.js && node test_module5.js && node test_module6.js && node test_module7.js && node test_module8.js && node test_module9.js && node test_module11.js",
     "check:bedrock": "node scripts/check_bedrock.js",
+    "preflight": "node scripts/preflight.js",
     "e2e:mcp": "node e2e_mcp_proof.js",
     "demo:up": "docker compose -f demo/docker-compose.yml up -d --build",
     "demo:crash": "curl -s -X POST http://localhost:8092/leak | node -e \"process.stdin.resume(); process.stdin.on('data', d => console.log(d.toString()))\"",
