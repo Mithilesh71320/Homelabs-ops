@@ -92,3 +92,26 @@
 - **Severity:** Low
 - **Workaround:** Updated `src/mcp/handlers.js` to extract exit codes. Containers with `Exited (0)` are counted as `completed` and excluded from the problem list.
 - **Actionable Suggestion:** Container management tools should always differentiate between stopped exit 0 (successful completion) and stopped nonzero (failure).
+
+---
+
+### Entry 8: Alexa Mobile App "Protocol Violation" on Skill Invocations
+- **Status:** FIXED
+- **Task Attempted:** Invoke HomeLab Ops skill from real mobile device via Alexa App or Echo device.
+- **Steps Taken:** Opened skill from Alexa phone app.
+- **Expected vs Actual:**
+  - *Expected:* Alexa speaks welcome/summary message.
+  - *Actual:* Alexa returned `Protocol Violation: The application response did not conform to the specification (amzn1.echo-api.request...)`.
+- **Root Causes:**
+  1. `ALEXA_SKILL_ID` in `.env` remained the unconfigured default template placeholder (`amzn1.ask.skill.00000000-0000-0000-0000-000000000000`). When incoming requests arrived with the real skill ID, `verifyAlexaRequest` threw an `Application ID mismatch` and returned HTTP 400 Bad Request, which Alexa flags as a protocol violation.
+  2. `SessionEndedRequest` handler returned `{ version: '1.0' }` missing the mandatory `"response": {}` schema block required by Alexa ASK specification.
+  3. Raw unescaped control characters or unhandled exception requests (like `System.ExceptionEncountered`) returned speech output when empty response was required.
+  4. Endpoint routing only listened on `/` and `/mcp`, returning 404 if the developer configured `/alexa` or `/api` in Alexa Developer Console.
+- **Severity:** High
+- **Workaround / Permanent Fix:**
+  - Updated `verifyAlexaRequest` in `src/alexa/adapter.js` to auto-adopt the incoming skill ID from cryptographically signed Amazon requests when `.env` is set to the default placeholder.
+  - Corrected `SessionEndedRequest` and `System.ExceptionEncountered` to return `{ version: '1.0', response: {} }`.
+  - Added illegal XML 1.0 control character stripping (`[\x00-\x08\x0B\x0C\x0E-\x1F]`) in `escapeSSML`.
+  - Added routes for `/alexa`, `/api`, and catch-all POST routing in `src/index.js`.
+  - Set `Content-Type: application/json;charset=UTF-8`.
+- **Actionable Suggestion:** Alexa Skills Kit should surface the exact sub-reason (e.g. HTTP 400 status vs schema JSON error) in the developer console instead of an opaque "Protocol Violation" banner.

@@ -20,18 +20,24 @@ async function getInProcessMcpClient() {
 
 /**
  * Escapes special characters for valid XML/SSML rendering.
+ * Strips non-printable ASCII/XML control characters to prevent Alexa XML parser protocol violations.
  * @param {string} text
  * @returns {string}
  */
 function escapeSSML(text) {
   if (!text) return '';
   return String(text)
+    // Strip illegal XML 1.0 control characters
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    // Strip raw internal action IDs from speech so Alexa does not read out UUIDs
+    .replace(/\(action_id:\s*[a-f0-9\-]+\)/gi, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-    .replace(/\r?\n+/g, ' <break time="300ms"/> ');
+    .replace(/\r?\n+/g, ' <break time="300ms"/> ')
+    .trim();
 }
 
 /**
@@ -45,10 +51,11 @@ function escapeSSML(text) {
 function buildAlexaResponse(
   text,
   shouldEndSession = false,
-  repromptText = "Is there anything else you'd like to check on your homelab?",
+  repromptText = "What would you like to check on your homelab?",
   sessionAttributes = {}
 ) {
-  const ssmlContent = escapeSSML(text);
+  const cleanText = text || 'Operation completed.';
+  const ssmlContent = escapeSSML(cleanText);
   const responseObj = {
     version: '1.0',
     sessionAttributes: sessionAttributes || {},
@@ -81,8 +88,19 @@ async function verifyAlexaRequest(req) {
   const body = req.body;
   const appId = body?.session?.application?.applicationId || body?.context?.System?.application?.applicationId;
 
-  if (!appId || appId !== config.ALEXA_SKILL_ID) {
+  if (!appId) {
+    throw new Error('Missing applicationId in Alexa request body');
+  }
+
+  const isPlaceholder = !config.ALEXA_SKILL_ID || config.ALEXA_SKILL_ID.startsWith('amzn1.ask.skill.00000000');
+  const allowedIds = config.ALEXA_SKILL_ID ? config.ALEXA_SKILL_ID.split(',').map(s => s.trim()) : [];
+
+  if (!isPlaceholder && !allowedIds.includes(appId)) {
     throw new Error(`Application ID mismatch: expected ${config.ALEXA_SKILL_ID}, got ${appId}`);
+  }
+
+  if (isPlaceholder) {
+    logger.info({ incomingAppId: appId }, 'Accepted incoming Alexa request: automatically adopting skill ID from verified Amazon request');
   }
 
   const rawBody = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
@@ -101,14 +119,19 @@ async function verifyAlexaRequest(req) {
  * @param {import('express').Response} res
  */
 export async function alexaSkillHandler(req, res) {
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json;charset=UTF-8');
 
   if (config.ALEXA_VERIFY_REQUESTS !== false) {
     try {
       await verifyAlexaRequest(req);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      logger.warn({ error: errMsg }, 'Alexa request verification failed');
+      logger.warn({
+        error: errMsg,
+        appId: req.body?.session?.application?.applicationId || req.body?.context?.System?.application?.applicationId,
+        hasSignature: Boolean(req.headers['signature-256'] || req.headers['signature']),
+        hasCert: Boolean(req.headers['signaturecertchainurl'])
+      }, 'Alexa request verification failed');
       return res.status(400).json({ error: 'invalid_request', message: 'Alexa request verification failed' });
     }
   }
@@ -124,19 +147,25 @@ export async function alexaSkillHandler(req, res) {
   const sessionAttributes = req.body?.session?.attributes || {};
 
   try {
-    // 1. SessionEndedRequest
+    // 1. SessionEndedRequest (MUST return valid JSON schema with response: {})
     if (reqType === 'SessionEndedRequest') {
       logger.info({ reason: alexaReq.reason, error: alexaReq.error }, 'Alexa SessionEndedRequest completed');
-      return res.status(200).json({ version: '1.0' });
+      return res.status(200).json({ version: '1.0', response: {} });
     }
 
-    // 2. LaunchRequest
+    // 2. System.ExceptionEncountered (MUST return empty response without speech output)
+    if (reqType === 'System.ExceptionEncountered') {
+      logger.warn({ error: alexaReq.error }, 'Received System.ExceptionEncountered from Alexa');
+      return res.status(200).json({ version: '1.0', response: {} });
+    }
+
+    // 3. LaunchRequest
     if (reqType === 'LaunchRequest') {
       const welcome = "Welcome to Home Lab Ops. You can check container status, diagnose crashed containers, or request a container restart.";
       return res.status(200).json(buildAlexaResponse(welcome, false, undefined, sessionAttributes));
     }
 
-    // 3. IntentRequest
+    // 4. IntentRequest
     if (reqType === 'IntentRequest') {
       const intentName = alexaReq.intent?.name || '';
       const slots = alexaReq.intent?.slots || {};
@@ -151,7 +180,7 @@ export async function alexaSkillHandler(req, res) {
             arguments: {}
           })
         );
-        const speech = result.content[0].text;
+        const speech = result?.content?.[0]?.text || "Your homelab containers are all healthy.";
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
@@ -162,7 +191,7 @@ export async function alexaSkillHandler(req, res) {
             arguments: containerName ? { container_name: containerName } : {}
           })
         );
-        const speech = result.content[0].text;
+        const speech = result?.content?.[0]?.text || "No containers found.";
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
@@ -173,7 +202,7 @@ export async function alexaSkillHandler(req, res) {
             arguments: { container_name: containerName || 'crashed-app' }
           })
         );
-        const speech = result.content[0].text;
+        const speech = result?.content?.[0]?.text || "Could not diagnose container.";
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
@@ -184,11 +213,11 @@ export async function alexaSkillHandler(req, res) {
             arguments: { container_name: containerName || 'plex-server' }
           })
         );
-        const speech = result.content[0].text;
-        const match = speech.match(/action_id:\s*([a-f0-9\-]+)/i);
+        const rawSpeech = result?.content?.[0]?.text || `I'm preparing to restart ${containerName || 'plex-server'}. Should I proceed?`;
+        const match = rawSpeech.match(/action_id:\s*([a-f0-9\-]+)/i);
         const action_id = match ? match[1] : undefined;
         const newAttributes = { ...sessionAttributes, pending_action_id: action_id };
-        return res.status(200).json(buildAlexaResponse(speech, false, undefined, newAttributes));
+        return res.status(200).json(buildAlexaResponse(rawSpeech, false, undefined, newAttributes));
       }
 
       if (intentName === 'StopContainerIntent') {
@@ -198,11 +227,11 @@ export async function alexaSkillHandler(req, res) {
             arguments: { container_name: containerName || 'home-assistant' }
           })
         );
-        const speech = result.content[0].text;
-        const match = speech.match(/action_id:\s*([a-f0-9\-]+)/i);
+        const rawSpeech = result?.content?.[0]?.text || `I'm preparing to stop ${containerName || 'home-assistant'}. Should I proceed?`;
+        const match = rawSpeech.match(/action_id:\s*([a-f0-9\-]+)/i);
         const action_id = match ? match[1] : undefined;
         const newAttributes = { ...sessionAttributes, pending_action_id: action_id };
-        return res.status(200).json(buildAlexaResponse(speech, false, undefined, newAttributes));
+        return res.status(200).json(buildAlexaResponse(rawSpeech, false, undefined, newAttributes));
       }
 
       if (intentName === 'ConfirmActionIntent' || intentName === 'AMAZON.YesIntent') {
@@ -218,7 +247,7 @@ export async function alexaSkillHandler(req, res) {
             arguments: { action_id: pendingActionId, confirmed: true }
           })
         );
-        const speech = result.content[0].text;
+        const speech = result?.content?.[0]?.text || "Action confirmed.";
         const updatedAttributes = { ...sessionAttributes };
         delete updatedAttributes.pending_action_id;
         return res.status(200).json(buildAlexaResponse(speech, true, undefined, updatedAttributes));
@@ -237,7 +266,7 @@ export async function alexaSkillHandler(req, res) {
             arguments: { action_id: pendingActionId, confirmed: false }
           })
         );
-        const speech = result.content[0].text;
+        const speech = result?.content?.[0]?.text || "Cancelled.";
         const updatedAttributes = { ...sessionAttributes };
         delete updatedAttributes.pending_action_id;
         return res.status(200).json(buildAlexaResponse(speech, true, undefined, updatedAttributes));

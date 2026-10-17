@@ -77,6 +77,17 @@ async function mcpOrAlexaRouter(req, res, next) {
 
 app.all('/mcp', apiLimiter, mcpOrAlexaRouter);
 app.all('/', apiLimiter, mcpOrAlexaRouter);
+app.all('/alexa', apiLimiter, mcpOrAlexaRouter);
+app.all('/api', apiLimiter, mcpOrAlexaRouter);
+app.all('/api/alexa', apiLimiter, mcpOrAlexaRouter);
+
+// Catch-all: ensure any POST payload matching Alexa Skill request format routes to alexaSkillHandler
+app.post('*', apiLimiter, (req, res, next) => {
+  if (req.body && typeof req.body === 'object' && req.body.request && req.body.request.type) {
+    return alexaSkillHandler(req, res);
+  }
+  next();
+});
 
 app.listen(PORT, '127.0.0.1', () => {
   logger.info(`HomeLab Ops MCP server listening on 127.0.0.1:${PORT}`);
