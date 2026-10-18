@@ -25,14 +25,41 @@
         },
         {
           "name": "GetContainerStatusIntent",
-          "slots": [],
+          "slots": [
+            {
+              "name": "container",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
           "samples": [
             "check container status",
             "get container status",
             "status",
             "how are my containers",
             "check containers",
-            "container status"
+            "container status",
+            "check status of {container}",
+            "status of {container}",
+            "check {container}"
+          ]
+        },
+        {
+          "name": "CheckWebsiteIntent",
+          "slots": [
+            {
+              "name": "website",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "check website {website}",
+            "check website status {website}",
+            "check status of website {website}",
+            "check site {website}",
+            "is {website} up",
+            "is {website} online",
+            "ping {website}",
+            "website {website}"
           ]
         },
         {

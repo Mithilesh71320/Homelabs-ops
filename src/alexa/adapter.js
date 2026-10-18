@@ -252,31 +252,38 @@ export async function alexaSkillHandler(req, res) {
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 
-      // Detect if user is asking about a website URL or domain name (e.g. google.com, amazon.com)
+      // Normalize speech for URLs/domains (e.g. "google dot com" -> "https://google.com")
+      const cleanUrl = (val) => {
+        if (!val) return 'https://amazon.com';
+        let v = val.toLowerCase().trim();
+        v = v.replace(/\s+dot\s+/g, '.');
+        v = v.replace(/\s+/g, '');
+        if (!v.startsWith('http://') && !v.startsWith('https://')) {
+          v = 'https://' + v;
+        }
+        return v;
+      };
+
+      // Detect if user is asking about a website URL or domain name (e.g. google.com, google dot com, amazon.com)
       const isWebsite = (val) => {
         if (!val) return false;
-        const v = val.toLowerCase().trim();
+        let v = val.toLowerCase().trim();
+        v = v.replace(/\s+dot\s+/g, '.');
         return (
           v.startsWith('http://') ||
           v.startsWith('https://') ||
-          v.endsWith('.com') ||
-          v.endsWith('.org') ||
-          v.endsWith('.net') ||
-          v.endsWith('.io') ||
-          v.endsWith('.dev') ||
-          v.endsWith('.app') ||
-          v.endsWith('.in') ||
-          v.endsWith('.co') ||
-          /\.[a-z]{2,8}(\/|$)/.test(v)
+          /\.(com|org|net|io|dev|app|in|co|ai|tech|edu|gov|xyz)(\/|$)/.test(v) ||
+          v.includes('.')
         );
       };
 
       if (intentName === 'CheckWebsiteIntent' || (intentName === 'GetContainerStatusIntent' && isWebsite(containerName))) {
-        const siteUrl = slots.website?.value || slots.url?.value || slots.site?.value || containerName;
+        const rawUrl = slots.website?.value || slots.url?.value || slots.site?.value || containerName;
+        const siteUrl = cleanUrl(rawUrl);
         const result = await runWithSource('alexa-skill', () =>
           mcpClient.callTool({
             name: 'check_website_health',
-            arguments: { url: siteUrl || 'https://amazon.com' }
+            arguments: { url: siteUrl }
           })
         );
         const speech = result?.content?.[0]?.text || "Unable to check website status.";
@@ -295,6 +302,18 @@ export async function alexaSkillHandler(req, res) {
       }
 
       if (intentName === 'DiagnoseContainerIntent') {
+        if (isWebsite(containerName)) {
+          const siteUrl = cleanUrl(containerName);
+          const result = await runWithSource('alexa-skill', () =>
+            mcpClient.callTool({
+              name: 'check_website_health',
+              arguments: { url: siteUrl }
+            })
+          );
+          const speech = result?.content?.[0]?.text || "Unable to check website status.";
+          return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
+        }
+
         const result = await runWithSource('alexa-skill', () =>
           mcpClient.callTool({
             name: 'diagnose_container_issue',
