@@ -8,7 +8,8 @@ import {
   handleRequestRestartContainer,
   handleRequestStopContainer,
   handleConfirmAction,
-  handleDiagnoseContainerIssue
+  handleDiagnoseContainerIssue,
+  handleCheckWebsiteHealth
 } from './handlers.js';
 
 /**
@@ -130,6 +131,19 @@ export function registerTools(server) {
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }
     },
     async (args, context) => handleConfirmAction(args, context)
+  );
+
+  // Dynamic Website / URL Health Checker
+  server.registerTool(
+    'check_website_health',
+    {
+      description: 'Check if an external website or web service is online, reachable, and healthy by measuring HTTP response code and latency in milliseconds. Example phrasings: "Check website google.com", "Is amazon.com online?". Returns reachability, HTTP status code, and latency.',
+      inputSchema: z.object({
+        url: z.string({ required_error: 'url is required' }).describe('URL or domain name of the website to check, e.g. google.com or https://example.com')
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+    },
+    async (args, context) => handleCheckWebsiteHealth(args, context)
   );
 }
 

@@ -23,7 +23,7 @@ import { analyzeLogs, BedrockError } from '../services/ai.js';
 export function withAudit(toolName, handlerFn) {
   return async (args = {}, context = {}) => {
     const timestamp = new Date().toISOString();
-    const target = args?.container_name || null;
+    const target = args?.url || args?.container_name || null;
     const source = context?.source || args?.source || getAuditSource() || 'mcp';
 
     try {
@@ -550,6 +550,72 @@ export const handleDiagnoseContainerIssue = withAudit('diagnose_container_issue'
     return {
       text: fallbackText,
       status: 'degraded'
+    };
+  }
+});
+
+/**
+ * Dynamic Website / Web URL Health Checker.
+ * Pings any HTTP/HTTPS website URL or domain, measures latency in ms,
+ * and returns status and reachability for both MCP clients and Alexa voice output.
+ *
+ * @param {Object} [args]
+ * @param {string} [args.url] - URL or domain to check (e.g. google.com, https://amazon.com)
+ * @returns {Promise<{ content: Array<{ type: 'text', text: string }> }>}
+ */
+export const handleCheckWebsiteHealth = withAudit('check_website_health', async (args = {}) => {
+  let rawUrl = String(args.url || '').trim();
+  if (!rawUrl) {
+    return {
+      text: 'Please provide a website URL or domain name to check.',
+      status: 'failure'
+    };
+  }
+
+  // Normalize: if user gives "google.com" or "amazon.in", prepend "https://"
+  let targetUrl = rawUrl;
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    targetUrl = 'https://' + targetUrl;
+  }
+
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'HomeLab-Ops-Monitor/1.0 (+https://github.com/homelab-ops/mcp)'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const latencyMs = Date.now() - startTime;
+    const isOk = res.ok;
+    const statusText = res.statusText || (isOk ? 'OK' : 'Error');
+
+    const spokenText = isOk
+      ? `${targetUrl} is online and healthy. Response time was ${latencyMs} milliseconds with HTTP status ${res.status} ${statusText}.`
+      : `Warning: ${targetUrl} returned HTTP status ${res.status} ${statusText} in ${latencyMs} milliseconds.`;
+
+    return {
+      text: spokenText,
+      status: isOk ? 'success' : 'failure',
+      latencyMs,
+      httpStatus: res.status
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - startTime;
+    const isTimeout = err.name === 'AbortError';
+    const errMessage = isTimeout ? 'connection timed out after 6 seconds' : (err.message || 'connection failed');
+
+    return {
+      text: `Website check failed: ${targetUrl} is unreachable (${errMessage}).`,
+      status: 'failure',
+      latencyMs,
+      error: errMessage
     };
   }
 });

@@ -229,7 +229,7 @@ export async function alexaSkillHandler(req, res) {
 
     // 3. LaunchRequest
     if (reqType === 'LaunchRequest') {
-      const welcome = "Welcome to Home Lab Ops. You can check container status, diagnose crashed containers, or request a container restart.";
+      const welcome = "Welcome to Home Lab Ops. You can check container status, check website availability, diagnose crashed containers, or request a container restart.";
       return res.status(200).json(buildAlexaResponse(welcome, false, undefined, sessionAttributes));
     }
 
@@ -249,6 +249,37 @@ export async function alexaSkillHandler(req, res) {
           })
         );
         const speech = result?.content?.[0]?.text || "Your homelab containers are all healthy.";
+        return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
+      }
+
+      // Detect if user is asking about a website URL or domain name (e.g. google.com, amazon.com)
+      const isWebsite = (val) => {
+        if (!val) return false;
+        const v = val.toLowerCase().trim();
+        return (
+          v.startsWith('http://') ||
+          v.startsWith('https://') ||
+          v.endsWith('.com') ||
+          v.endsWith('.org') ||
+          v.endsWith('.net') ||
+          v.endsWith('.io') ||
+          v.endsWith('.dev') ||
+          v.endsWith('.app') ||
+          v.endsWith('.in') ||
+          v.endsWith('.co') ||
+          /\.[a-z]{2,8}(\/|$)/.test(v)
+        );
+      };
+
+      if (intentName === 'CheckWebsiteIntent' || (intentName === 'GetContainerStatusIntent' && isWebsite(containerName))) {
+        const siteUrl = slots.website?.value || slots.url?.value || slots.site?.value || containerName;
+        const result = await runWithSource('alexa-skill', () =>
+          mcpClient.callTool({
+            name: 'check_website_health',
+            arguments: { url: siteUrl || 'https://amazon.com' }
+          })
+        );
+        const speech = result?.content?.[0]?.text || "Unable to check website status.";
         return res.status(200).json(buildAlexaResponse(speech, false, undefined, sessionAttributes));
       }
 

@@ -356,6 +356,12 @@ export function renderDashboardHtml() {
         <button id="btnAlexaDiagnose" class="alexa-btn" onclick="sendAlexa('DiagnoseContainerIntent', { container_name: 'crashed-app' })">
           🎙️ "Diagnose crashed container"
         </button>
+        <button id="btnAlexaWebsiteAmazon" class="alexa-btn" onclick="sendAlexa('CheckWebsiteIntent', { website: 'amazon.com' })">
+          🌐 "Check website amazon.com"
+        </button>
+        <button id="btnAlexaWebsiteGoogle" class="alexa-btn" onclick="sendAlexa('CheckWebsiteIntent', { website: 'google.com' })">
+          🌐 "Check website google.com"
+        </button>
         <button id="btnAlexaStop" class="alexa-btn" onclick="sendAlexa('SessionEndedRequest')">
           ⏹️ "Session Ended"
         </button>
@@ -428,7 +434,7 @@ export function renderDashboardHtml() {
 
       <!-- Tools Card -->
       <div class="card" style="grid-column: 1 / -1;">
-        <h2>🛠️ 9 Registered MCP Tools</h2>
+        <h2>🛠️ 10 Registered MCP Tools</h2>
         <div class="tools-list">
           <span class="tool-pill">ping (readOnly)</span>
           <span class="tool-pill">get_homelab_summary (readOnly)</span>
@@ -436,6 +442,7 @@ export function renderDashboardHtml() {
           <span class="tool-pill">get_container_logs (readOnly)</span>
           <span class="tool-pill">get_container_stats (readOnly)</span>
           <span class="tool-pill">diagnose_container_issue (readOnly, openWorld)</span>
+          <span class="tool-pill">check_website_health (readOnly, openWorld)</span>
           <span class="tool-pill">request_restart_container (destructive)</span>
           <span class="tool-pill">request_stop_container (destructive)</span>
           <span class="tool-pill">confirm_action (destructive)</span>
@@ -447,13 +454,17 @@ export function renderDashboardHtml() {
     <div class="tester-section">
       <h2>🧪 Live Endpoint & Raw JSON Inspector</h2>
       <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">
-        Inspect raw JSON payloads for MCP protocol discovery and negative authentication checks:
+        Inspect raw JSON payloads for MCP protocol discovery and test dynamic website reachability:
       </p>
       <div class="btn-row">
         <button id="btnHealth" class="raw-btn" onclick="testEndpoint('/health')">GET /health</button>
         <button id="btnOAuthServer" class="raw-btn" onclick="testEndpoint('/.well-known/oauth-authorization-server')">GET OAuth Server Metadata</button>
         <button id="btnOAuthProtected" class="raw-btn" onclick="testEndpoint('/.well-known/oauth-protected-resource')">GET Protected Resource Metadata</button>
         <button id="btnMcpUnauth" class="raw-btn" onclick="testEndpoint('/mcp', { method: 'POST' })">POST /mcp (Expect Bare 401)</button>
+      </div>
+      <div style="margin: 1.25rem 0 0.75rem 0; display: flex; gap: 0.5rem; max-width: 650px;">
+        <input id="inputWebsiteUrl" type="text" placeholder="Enter any URL (e.g. amazon.com, google.com, github.com)" style="flex: 1; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: #0b1120; color: #fff; font-family: Outfit, sans-serif; font-size: 0.95rem;" value="amazon.com" />
+        <button class="raw-btn" onclick="checkCustomWebsite()">🌐 Check Website Live</button>
       </div>
       <div class="response-box" id="responseBox">// Click a button above to run live inspection...</div>
     </div>
@@ -585,6 +596,11 @@ export function renderDashboardHtml() {
       } catch (err) {
         box.textContent = 'Error: ' + err.message;
       }
+    }
+
+    async function checkCustomWebsite() {
+      const url = document.getElementById('inputWebsiteUrl').value.trim() || 'amazon.com';
+      sendAlexa('CheckWebsiteIntent', { website: url });
     }
   </script>
 </body>

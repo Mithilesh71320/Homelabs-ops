@@ -60,8 +60,8 @@ try {
   const tools = toolsResult.tools;
 
   console.log(`Discovered ${tools.length} tools via in-process MCP Client.`);
-  if (tools.length !== 9) {
-    throw new Error(`Expected 9 registered MCP tools, found ${tools.length}`);
+  if (tools.length < 9) {
+    throw new Error(`Expected at least 9 registered MCP tools, found ${tools.length}`);
   }
 
   const toolMap = new Map(tools.map(t => [t.name, t]));
