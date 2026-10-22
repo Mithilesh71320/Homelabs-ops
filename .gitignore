@@ -5,4 +5,7 @@ audit.db
 *.db-journal
 *.db-shm
 *.db-wal
+demo_video_build/
+*.mp4
+*.png
 *.log
