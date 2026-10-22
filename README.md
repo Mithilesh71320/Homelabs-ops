@@ -6,6 +6,10 @@
 [![MCP Spec](https://img.shields.io/badge/MCP%20Spec-2025--11--25-orange.svg)](https://spec.modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Tests](https://img.shields.io/badge/tests-passing%20(8%20suites)-success.svg)](test_module9.js)
+[![Demo Video](https://img.shields.io/badge/YouTube-Demo%20Video%20(2m30s)-red?logo=youtube)](https://youtu.be/WzXVfQ6azf0)
+[![Devpost](https://img.shields.io/badge/Devpost-Submission-003E54?logo=devpost)](https://devpost.com/software/homelab-ops-voice-driven-mcp-infrastructure)
+
+> 🎬 **Watch the Demo**: [YouTube 2.5-minute Walkthrough](https://youtu.be/WzXVfQ6azf0) | 🏆 **Hackathon Entry**: [Devpost Project Page](https://devpost.com/software/homelab-ops-voice-driven-mcp-infrastructure) | 🌐 **Live Public Server**: [`https://snowfall-simply-helper.ngrok-free.dev`](https://snowfall-simply-helper.ngrok-free.dev)
 
 ---
 
@@ -195,7 +199,7 @@ For complete shot-by-shot instructions, review [docs/DEMO_SETUP.md](docs/DEMO_SE
 - **Fault-Tolerant Fallback**: Implements 10-second request abort timeouts and deterministic diagnosis fallback labeled `"Generated without AI (Bedrock unavailable)"` if AWS Bedrock is unreachable, throttling, or EOL.
 
 ### 3. Open Source Track
-- **Standalone Package**: Extracted the generic confirmation engine into an independent open-source package: [`mcp-confirm-gate`](https://github.com/TODO-author/mcp-confirm-gate).
+- **Standalone Package**: Extracted the generic confirmation engine into an independent open-source package: [`mcp-confirm-gate`](https://github.com/Mithilesh71320/Homelabs-ops/tree/main/packages/mcp-confirm-gate).
 - **Zero Homelab Coupling**: Reusable by any Node.js MCP server needing human-in-the-loop protection for destructive tool calls.
 - **Complete Test Coverage**: Includes standalone `node:test` test suite validating expiration, single-use guarantees, and cancellation hooks.
 
@@ -204,7 +208,7 @@ For complete shot-by-shot instructions, review [docs/DEMO_SETUP.md](docs/DEMO_SE
 ## Known Limitations & Roadmap
 
 We believe in honest engineering disclosures:
-1. **Voice Delivery Bridge**: Voice interaction is currently delivered through an Alexa Custom Skill bridge using `ask-sdk-express-adapter` connected to an in-process MCP client via `InMemoryTransport`. Direct Alexa+ native add-on registration remains in closed developer preview status [TODO(author): check alexa-ai CLI add-on preview status for current account].
+1. **Voice Delivery Bridge**: Voice interaction is currently delivered through an Alexa Custom Skill bridge using `ask-sdk-express-adapter` connected to an in-process MCP client via `InMemoryTransport`. Direct Alexa+ native add-on registration remains in closed developer preview status.
 2. **Proxmox VE Integration**: Proxmox virtual machine and LXC hypervisor metrics are part of our architectural roadmap and are **not** implemented in this release. This version monitors Docker containers via Portainer CE.
 3. **Single-User Administrative Scope**: The server is designed for a single homelab owner/operator. Multi-tenant access control and role-based container permissions are planned for future iterations.
 
